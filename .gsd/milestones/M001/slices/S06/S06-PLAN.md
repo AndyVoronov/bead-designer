@@ -62,7 +62,7 @@
   - Do: Create admin template API (GET all without isApproved filter, POST create, PATCH update name/isApproved, DELETE). Create admin order API (GET all, PATCH status). Build Templates page with table, create form (name + design code), approve/unapprove toggle, delete button. Build Orders page with table, status badges, status change dropdown, "Сделать шаблоном" button that promotes an order's design to a new approved template.
   - Verify: `curl` or browser — POST /api/admin/templates creates template; PATCH toggles isApproved; DELETE removes; PATCH /api/admin/orders/[id]/status changes status; Templates page shows seeded templates; Orders page shows orders
   - Done when: All template CRUD operations work end-to-end in browser; order status changes persist; promote-to-template creates a new approved template from an order
-- [ ] **T03: Beads catalog viewer + integration verification** `est:20m`
+- [x] **T03: Beads catalog viewer + integration verification** `est:20m`
   - Why: Beads page completes the admin panel's three-section nav. Then full verification (tests, type check, build, browser) confirms the entire admin panel works as a cohesive unit.
   - Files: `src/app/admin/beads/page.tsx`
   - Do: Create beads catalog page reading from CATALOG_BEADS static array (not DB — Bead table has no migration). Show table with all 100 beads (id, name, nameRu, shape, material, color swatch). Add material filter dropdown (wood/silicone/knit/plastic). Add name search. Run `npx vitest run`, `npx tsc --noEmit`, `npm run build`. Browser-verify all admin flows: login → templates → orders → beads → logout.

@@ -9,7 +9,7 @@
 
 ## Next.js 16 + GSD Worktree
 
-- **Windows junction path bug**: `npm run dev` from the junction path (`D:\ProjectsOnCursor\ToyDesigner\.gsd\worktrees\M001`) causes Next.js to double-concatenate paths with the real path (`C:\Users\Andy\.gsd\projects\...`), producing ENOENT on `.next/dev/routes-manifest.json`. **Fix**: always start the dev server from the real path, or use `--port N` to force a specific port.
+- **Windows junction path bug**: `npm run dev` / `next start` from the junction path (`D:\ProjectsOnCursor\ToyDesigner\.gsd\worktrees\M001`) causes Next.js to double-concatenate paths with the real path (`C:\Users\Andy\.gsd\projects\...`), producing ENOENT on `.next/routes-manifest.json`. The build succeeds but `required-server-files.json` contains the real path in `outputFileTracingRoot` and `appDir`. At runtime, Next.js joins CWD (junction path) with these absolute real paths, creating a corrupted path. **Fix**: always start `next start`/`next dev` from the real path (`C:\Users\Andy\.gsd\projects\...\worktrees\M001`), not the junction path. The build can run from either path since it only writes paths to config files.
 
 - **ssr:false forbidden in Server Components**: Next.js 16 raises a build error if `next/dynamic({ ssr: false })` is used in a Server Component. **Fix**: create a thin `"use client"` wrapper (e.g., `SceneLoader.tsx`) that uses dynamic import, then import the wrapper from the Server Component page.
 
