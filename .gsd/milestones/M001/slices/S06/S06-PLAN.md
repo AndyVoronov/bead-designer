@@ -56,7 +56,7 @@
   - Do: Create Next.js middleware checking admin_token cookie on /admin and /api/admin paths. Create login page with password form. Create admin layout with sidebar nav and admin-root CSS class overriding global overflow:hidden. Create auth API route that sets/clears httpOnly cookie. Add ADMIN_PASSWORD to .env. Dashboard page redirects to /admin/templates.
   - Verify: Browser `/admin` → redirect to `/admin/login`; wrong password → error; correct password → cookie set → redirect to `/admin/templates` (empty page OK)
   - Done when: Auth middleware blocks unauthenticated access to /admin/* and /api/admin/*; login sets cookie; admin layout renders with sidebar
-- [ ] **T02: Admin API routes + Templates + Orders pages** `est:45m`
+- [x] **T02: Admin API routes + Templates + Orders pages** `est:45m`
   - Why: These are the two core CRUD management surfaces — templates (create, approve, delete) and orders (view, change status, promote to template). Each needs its own admin API routes under /api/admin/* to avoid colliding with public endpoints.
   - Files: `src/app/api/admin/templates/route.ts`, `src/app/api/admin/templates/[id]/route.ts`, `src/app/api/admin/orders/route.ts`, `src/app/api/admin/orders/[id]/status/route.ts`, `src/app/admin/templates/page.tsx`, `src/app/admin/orders/page.tsx`
   - Do: Create admin template API (GET all without isApproved filter, POST create, PATCH update name/isApproved, DELETE). Create admin order API (GET all, PATCH status). Build Templates page with table, create form (name + design code), approve/unapprove toggle, delete button. Build Orders page with table, status badges, status change dropdown, "Сделать шаблоном" button that promotes an order's design to a new approved template.
