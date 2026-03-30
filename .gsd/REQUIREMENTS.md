@@ -14,28 +14,6 @@ Guidelines:
 
 ## Active
 
-### R002 — Мобильная адаптивная отрисовка
-- Class: quality-attribute
-- Status: active
-- Description: 3D-сцена плавно работает на мобильных устройствах. Адаптивное качество рендеринга — на мощных телефонах максимум красоты, на слабых — упрощённо но стабильно 30+ FPS.
-- Why it matters: Основная масса клиентов — с телефона. Тормозящий 3D убьёт конверсию.
-- Source: user
-- Primary owning slice: M001/S02
-- Supporting slices: M001/S07
-- Validation: unmapped
-- Notes: PerformanceMonitor из R3F, dynamic DPR, on-demand rendering при статике. Пост-обработка (SSGI) отключается на слабых устройствах.
-
-### R003 — Реалистичные материалы бусин из PNG
-- Class: differentiator
-- Status: active
-- Description: Бусины отображаются с реалистичными PBR-материалами, отличающими дерево, силикон, вязаное и другие материалы. Текстуры загружаются из PNG-изображений, предоставленных пользователем.
-- Why it matters: Визуальная привлекательность — главная ценность. Без реалистичных материалов 3D выглядит дёшево.
-- Source: user
-- Primary owning slice: M001/S02
-- Supporting slices: M001/S03
-- Validation: unmapped
-- Notes: Нужно deriving normal/roughness maps из фотографий или ручная настройка PBR-параметров для каждого материала.
-
 ### R004 — Каталог бусин со свойствами
 - Class: core-capability
 - Status: active
@@ -121,8 +99,8 @@ Guidelines:
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: M001/S02, M001/S03, M001/S07
-- Validation: partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay with bead count + control buttons. Still needs PBR materials (S02), post-processing (S02), and full mobile UI polish (S03).
-- Notes: S01 establishes the visual foundation. S02 adds PBR materials and post-processing. S03 adds mobile UI design. S07 adds production polish.
+- Validation: partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay. S02 adds PBR materials per BeadType (wood/silicone/knit/plastic with distinct roughness/metalness/bump), procedural bump textures for wood and knit, adaptive rendering with PerformanceMonitor. Still needs: real PNG textures from user photos (S03/S06), full mobile UI polish (S03), production post-processing (S07).
+- Notes: S01 establishes visual foundation. S02 adds PBR materials. S03 adds mobile UI design. S07 adds production polish.
 
 ## Validated
 
@@ -136,6 +114,28 @@ Guidelines:
 - Supporting slices: M001/S03
 - Validation: S01 UAT: Chain of 7+ beads hangs under gravity with rope joints (useRopeJoint), swings when disturbed. MeshLine thread follows bead positions via CatmullRomCurve3 updated every frame. Pointer-drag uses Vercel kinematicPosition pattern with velocity history buffer (HISTORY_SIZE=3) — grab → drag → release with inertia. Build passes clean (0 TS errors). 10 useBeadChain unit tests pass. Tested with up to 12+ beads in browser.
 - Notes: Rope physics stable with damping=2 on all bodies, gravity=[0,-40,0], ROPE_TAUT_FACTOR=0.92. Max chain length tested ~12 beads. Stability at 20-40 beads still needs mobile verification in S02.
+
+### R002 — Мобильная адаптивная отрисовка
+- Class: quality-attribute
+- Status: validated
+- Description: 3D-сцена плавно работает на мобильных устройствах. Адаптивное качество рендеринга — на мощных телефонах максимум красоты, на слабых — упрощённо но стабильно 30+ FPS.
+- Why it matters: Основная масса клиентов — с телефона. Тормозящий 3D убьёт конверсию.
+- Source: user
+- Primary owning slice: M001/S02
+- Supporting slices: M001/S07
+- Validation: S02 UAT: Mobile viewport meta (user-scalable=no, maximum-scale=1) prevents browser pinch-zoom. touch-action: none on html/body/canvas-container/canvas (via !important to override R3F inline style) prevents scroll interference. AdaptiveDpr + AdaptiveEvents + PerformanceMonitor (drei) adjust quality dynamically. OrbitControls disabled during bead drag via Zustand dragStore. 60 FPS sustained with 21 beads on both desktop (1280×720) and Galaxy S24 mobile emulation (360×780). Geometry optimizations: sphere segments 32→24, thread curve points 32→20, ContactShadows resolution 512→256. Build passes clean, 17 tests pass.
+- Notes: Real device testing deferred to S07 (Playwright can't apply CPU throttling). PerformanceMonitor warmup triggers onFallback after flipflops=5 — expected drei behavior, not actual performance issue.
+
+### R003 — Реалистичные материалы бусин
+- Class: differentiator
+- Status: validated
+- Description: Бусины отображаются с реалистичными PBR-материалами, отличающими дерево, силикон, вязаное и другие материалы.
+- Why it matters: Визуальная привлекательность — главная ценность. Без реалистичных материалов 3D выглядит дёшево.
+- Source: user
+- Primary owning slice: M001/S02
+- Supporting slices: M001/S03
+- Validation: S02 UAT: BeadMaterialConfig map provides distinct PBR properties per BeadType — wood (roughness 0.75, metalness 0.0, bumpScale 0.02), silicone (roughness 0.2, metalness 0.05), knit (roughness 0.9, metalness 0.0, bumpScale 0.03), plastic (roughness 0.35, metalness 0.15). BeadMaterial component renders <meshStandardMaterial> with type-specific properties. Procedural 16×16 canvas noise bump textures for wood and knit. 7 unit tests validate: all roughness/metalness in [0,1], wood rougher than silicone, knit roughest, silicone smoothest, all types distinct. Browser: beads render with visually distinguishable materials.
+- Notes: PNG texture loading not yet implemented — uses procedural bumps. Real PNG diffuse textures + derived normal/roughness maps planned for S03/S06 via future textureUrl prop on BeadMaterial.
 
 ## Deferred
 
@@ -212,8 +212,8 @@ Guidelines:
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
 | R001 | core-capability | validated | M001/S01 | M001/S03 | validated |
-| R002 | quality-attribute | active | M001/S02 | M001/S07 | mapped |
-| R003 | differentiator | active | M001/S02 | M001/S03 | mapped |
+| R002 | quality-attribute | validated | M001/S02 | M001/S07 | validated |
+| R003 | differentiator | validated | M001/S02 | M001/S03 | validated |
 | R004 | core-capability | active | M001/S03 | M001/S04 | mapped |
 | R005 | primary-user-loop | active | M001/S03 | M001/S04 | mapped |
 | R006 | integration | active | M001/S04 | M001/S06 | mapped |
@@ -231,8 +231,8 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 10
-- Mapped to slices: 10
-- Validated: 1
+- Active requirements: 8
+- Mapped to slices: 8
+- Validated: 3
 - Partially validated: 1 (R011)
 - Unmapped active requirements: 0

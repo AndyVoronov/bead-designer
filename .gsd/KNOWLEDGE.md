@@ -25,3 +25,16 @@
 ## MeshLine
 
 - **TypeScript type augmentation for R3F**: Use plain object types for `meshLineMaterial` in `ThreeElements` — never use `React.DetailedHTMLProps` as a base (brings incompatible HTML ref types). Include `attach`, `args` (ConstructorParameters), and all shader-specific props (`color`, `lineWidth`, `resolution`, `sizeAttenuation`).
+
+## R3F Canvas Touch-Action on Mobile
+
+- **R3F sets inline touch-action: auto**: The Three.js renderer (via R3F) applies `touch-action: auto` as an inline style on the `<canvas>` element. This overrides CSS cascade rules, causing the browser to intercept touch gestures for scroll/zoom. **Fix**: use `.canvas-container canvas { touch-action: none !important; }` in CSS. The `!important` is required because inline styles have higher specificity than regular CSS rules.
+
+## Zustand in R3F Event Callbacks
+
+- **getState() vs hook in R3F contexts**: R3F pointer event callbacks (`onPointerDown`, `onPointerUp`, etc.) are imperative callbacks attached to Three.js objects. Using Zustand hook subscriptions (`useStore(s => s.value)`) in these contexts creates stale closures and unnecessary re-renders. **Fix**: use `useStore.getState()` in imperative callbacks. Use hook subscriptions only in React components that need reactive re-rendering (e.g., components that set `enabled` prop based on store state).
+
+## drei PerformanceMonitor
+
+- **Warmup triggers onFallback**: PerformanceMonitor starts at a lower quality factor (e.g., 0.6) and ramps up. During this ramp-up, rapid quality changes count as "flipflops". After `flipflops` threshold (default 5), `onFallback` fires even when FPS is actually fine. This is expected behavior — don't treat it as a real performance warning.
+- **CPU throttling unavailable in Playwright**: Chrome DevTools CPU throttling (2×/4×/6× slowdown) is a DevTools-only feature not available via Playwright's device emulation. Emulated devices run at native clock speed.

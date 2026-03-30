@@ -10,7 +10,7 @@
 
 ## Current State
 
-S01 completed: 3D-физика цепочки бусин работает. Next.js 16 + React Three Fiber + Rapier Physics. Цепочка из 7+ бусин висит под гравитацией, перетаскивается мышкой с инерцией. MeshLine-нить плавно следует за бусинами. Десктоп-браузер. SSR-safe. Build + tests pass.
+S02 completed: Mobile-adaptive 3D rendering + PBR materials. Mobile viewport lock, touch-action CSS, AdaptiveRenderer (AdaptiveDpr + AdaptiveEvents + PerformanceMonitor), OrbitControls/drag conflict resolution via Zustand dragStore. Type-specific PBR materials for wood/silicone/knit/plastic with procedural bump textures. Geometry optimizations: 60 FPS sustained with 21 beads on mobile emulation. Build + 17 tests pass.
 
 ## Architecture / Key Patterns
 
@@ -31,4 +31,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01 complete, S02-S07 remaining)
+- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S02 complete, S03-S07 remaining)

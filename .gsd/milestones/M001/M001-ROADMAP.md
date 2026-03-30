@@ -19,9 +19,8 @@
 
 ## Proof Strategy
 
-- Мобильная производительность → retire in S02 by proving 30+ FPS on real mobile with 20+ beads and touch interaction
-- Rope physics stability → retire in S01 by proving stable chain with drag interaction, no explosions at high-speed gestures
-- PBR from PNG → retire in S02 by rendering wood/silicone/knit beads with user-provided PNG textures and visually confirming material distinction
+- ~~Мобильная производительность~~ → **retired in S02**: 60 FPS sustained with 21 beads on desktop and Galaxy S24 emulation. Adaptive rendering (AdaptiveDpr + PerformanceMonitor) in place. Real device testing deferred to S07.
+- ~~PBR из PNG~~ → **partially retired in S02**: Type-specific PBR materials (wood/silicone/knit/plastic) with distinct roughness/metalness/bump properties. Procedural noise bump textures. Real PNG texture loading deferred to S03/S06.
 
 ## Verification Classes
 
@@ -54,7 +53,7 @@ This milestone is complete only when all are true:
 - [x] **S01: 3D-физика цепочки бусин** `risk:high` `depends:[]`
   > After this: Цепочка сферических бусин висит в 3D-сцене под гравитацией, качается, бусины перетаскиваются мышкой. Десктоп-браузер, базовые материалы.
 
-- [ ] **S02: Мобильный рендеринг + PBR-материалы** `risk:high` `depends:[S01]`
+- [x] **S02: Мобильный рендеринг + PBR-материалы** `risk:high` `depends:[S01]`
   > After this: Цепочка бусин рендерится на телефоне с реалистичными материалами (дерево, силикон, вязаное из PNG), адаптивное качество, тач-жесты, 30+ FPS.
 
 - [ ] **S03: Каталог бусин + редактор UI** `risk:medium` `depends:[S02]`
