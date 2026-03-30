@@ -1,6 +1,23 @@
 @import "tailwindcss";
 
+html {
+  overflow: hidden;
+  touch-action: none;
+}
+
 body {
   margin: 0;
   overflow: hidden;
+  touch-action: none;
+}
+
+.canvas-container {
+  touch-action: none;
+}
+
+/* R3F/Three.js sets touch-action: auto inline on the <canvas> element.
+   !important is needed to override that inline style so the browser
+   does not intercept touch events for scroll/zoom on the 3D canvas. */
+.canvas-container canvas {
+  touch-action: none !important;
 }

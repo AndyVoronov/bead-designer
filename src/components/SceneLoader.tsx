@@ -17,8 +17,11 @@ export default function SceneLoader() {
 
   return (
     <div className="relative w-screen h-screen">
-      {/* 3D Canvas fills the viewport */}
-      <Scene beads={beads} />
+      {/* 3D Canvas fills the viewport — touch-action: none prevents
+          browser scroll/zoom gestures on touch devices */}
+      <div className="canvas-container w-full h-full">
+        <Scene beads={beads} />
+      </div>
 
       {/* ── Overlay UI ──────────────────────────────────────────────── */}
 

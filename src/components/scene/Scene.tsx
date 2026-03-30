@@ -3,13 +3,42 @@
 import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
-import { OrbitControls, Environment, ContactShadows, Stats } from "@react-three/drei";
+import {
+  OrbitControls,
+  Environment,
+  ContactShadows,
+  Stats,
+} from "@react-three/drei";
 import { BeadChain } from "./BeadChain";
+import AdaptiveRenderer from "./AdaptiveRenderer";
+import { useDragStore } from "@/lib/dragStore";
 import type { BeadState } from "@/types/bead";
 
 export interface SceneProps {
   /** Array of bead descriptors — drives chain composition. */
   beads: BeadState[];
+}
+
+/**
+ * OrbitControls wrapper that reads the shared drag flag and disables
+ * orbit rotation while a bead is being dragged. This prevents the scene
+ * from rotating simultaneously with the bead drag gesture on touch devices.
+ *
+ * Uses the Zustand hook so React re-renders this component when the flag
+ * changes — OrbitControls picks up the new `enabled` prop immediately.
+ */
+function DragAwareOrbitControls() {
+  const isDragging = useDragStore((s) => s.isDragging);
+  return (
+    <OrbitControls
+      makeDefault
+      minPolarAngle={0}
+      maxPolarAngle={Math.PI}
+      minDistance={2}
+      maxDistance={20}
+      enabled={!isDragging}
+    />
+  );
 }
 
 /**
@@ -39,6 +68,9 @@ export default function Scene({ beads }: SceneProps) {
       {/* Fill light from opposite side for softer shadows */}
       <directionalLight position={[-3, 5, -3]} intensity={0.3} />
 
+      {/* Adaptive rendering — must be inside Canvas for R3F context */}
+      <AdaptiveRenderer />
+
       <Suspense fallback={null}>
         <Environment preset="studio" />
 
@@ -57,13 +89,7 @@ export default function Scene({ beads }: SceneProps) {
         />
       </Suspense>
 
-      <OrbitControls
-        makeDefault
-        minPolarAngle={0}
-        maxPolarAngle={Math.PI}
-        minDistance={2}
-        maxDistance={20}
-      />
+      <DragAwareOrbitControls />
 
       {/* FPS overlay — visible in dev only */}
       <Stats />

@@ -74,6 +74,24 @@ Establishes the mobile rendering foundation: proper viewport meta, touch-action 
 - Browser: Chrome DevTools mobile emulation (Galaxy S20) — viewport fills screen, no pinch-zoom, no scroll
 - Browser: `console.log` shows PerformanceMonitor factor changes when FPS varies (throttle CPU in DevTools to trigger)
 
+## Observability Impact
+
+**New signals:**
+- `PerformanceMonitor` callbacks (`onIncline`, `onDecline`, `onFallback`) log to `console.log` / `console.warn` with `[perf]` prefix — visible in browser DevTools console. These fire when the adaptive DPR factor changes due to frame-rate shifts.
+- `<Stats>` component from drei renders an FPS overlay in dev mode (already present, unchanged).
+- `dragStore.isDragging` is a Zustand state field — inspectable via `useDragStore.getState()` in the browser console.
+
+**How a future agent inspects this task:**
+- Check `console` for `[perf]` messages to verify adaptive rendering is active.
+- Throttle CPU in Chrome DevTools (Performance tab → 4× slowdown) to trigger `onDecline` / `onFallback` and confirm adaptive behavior.
+- In browser console, `useDragStore.getState()` reveals current drag state for debugging touch interaction issues.
+- `<Stats>` overlay gives real-time FPS readout for performance validation.
+
+**Failure states now visible:**
+- FPS drops below adaptive threshold → `[perf] FPS dropping — reducing quality` in console, DPR visibly lowers, Stats overlay shows FPS.
+- FPS critically low → `[perf] FPS critically low — fallback applied` warning.
+- Drag/orbit conflict → bead dragging rotates scene simultaneously (visual bug, indicates dragStore integration is broken or missing).
+
 ## Inputs
 
 - `src/app/layout.tsx` — root layout, needs viewport metadata export

@@ -46,7 +46,7 @@
 
 ## Tasks
 
-- [ ] **T01: Add mobile viewport, adaptive rendering, and OrbitControls-drag conflict fix** `est:45m`
+- [x] **T01: Add mobile viewport, adaptive rendering, and OrbitControls-drag conflict fix** `est:45m`
   - Why: Without proper viewport meta and touch-action CSS, mobile testing is impossible. Adaptive rendering (AdaptiveDpr + AdaptiveEvents + PerformanceMonitor) automatically adjusts quality to maintain FPS. The OrbitControls-during-drag conflict prevents touch drag from working — OrbitControls attaches DOM-level listeners that fire alongside R3F pointer events, causing both to handle the same touch gesture. Must fix via programmatic `enabled` control.
   - Files: `src/app/layout.tsx`, `src/app/globals.css`, `src/lib/dragStore.ts`, `src/components/scene/DragControls.tsx`, `src/components/scene/Scene.tsx`, `src/components/scene/AdaptiveRenderer.tsx`
   - Do:

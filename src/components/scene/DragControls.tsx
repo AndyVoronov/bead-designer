@@ -4,6 +4,7 @@ import { useRef, useCallback } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
+import { useDragStore } from "@/lib/dragStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,9 @@ export function useDrag(bodyRef: React.RefObject<RapierRigidBody | null>) {
       if (!body) return;
 
       e.stopPropagation();
+
+      // Signal OrbitControls to disable while we drag a bead
+      useDragStore.getState().setDragging(true);
 
       // Switch to kinematic — physics engine won't apply forces to this body
       body.setBodyType({ type: "kinematicPosition" } as never, true);
@@ -129,6 +133,9 @@ export function useDrag(bodyRef: React.RefObject<RapierRigidBody | null>) {
     dragRef.current = null;
     historyRef.current = [];
     historyIndexRef.current = 0;
+
+    // Re-enable OrbitControls now that bead drag is finished
+    useDragStore.getState().setDragging(false);
 
     gl.domElement.style.cursor = "auto";
   }, [gl]);
