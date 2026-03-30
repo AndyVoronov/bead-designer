@@ -66,7 +66,7 @@
 
 ## Tasks
 
-- [ ] **T01: Define bead data model and create ~100 catalog beads** `est:45m`
+- [x] **T01: Define bead data model and create ~100 catalog beads** `est:45m`
   - Why: All downstream tasks (store, catalog UI, editor) depend on typed catalog data. Without this, nothing can render or filter beads. Also writes the Prisma schema so S04 can pick it up.
   - Files: `src/types/bead.ts`, `src/data/catalogBeads.ts`, `prisma/schema.prisma`, `src/lib/beadMaterialConfig.ts`
   - Do:
