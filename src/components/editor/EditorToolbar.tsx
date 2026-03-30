@@ -1,6 +1,8 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { useDesignStore } from "@/stores/useDesignStore";
+import { encodeDesign } from "@/lib/serialization";
 
 interface EditorToolbarProps {
   catalogOpen: boolean;
@@ -10,11 +12,36 @@ interface EditorToolbarProps {
 /**
  * Fixed bottom toolbar with glass-morphism styling.
  * Reads bead count and selection state from the design store.
- * Provides three action buttons: catalog toggle, remove selected, reset.
+ * Provides four action buttons: catalog toggle, remove selected, share, reset.
  */
 export function EditorToolbar({ catalogOpen, onToggleCatalog }: EditorToolbarProps) {
   const beadCount = useDesignStore((s) => s.beads.length);
   const selectedId = useDesignStore((s) => s.selectedBeadId);
+  const beads = useDesignStore((s) => s.beads);
+
+  // ── Share state ────────────────────────────────────────────────
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const canShare = beads.some((b) => !!b.catalogBeadId);
+
+  const handleShare = useCallback(async () => {
+    if (!canShare) return;
+    try {
+      const code = encodeDesign(beads);
+      if (!code) return;
+      const url = `${window.location.origin}/design/${code}`;
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch (err) {
+      console.error("Failed to copy share URL:", err);
+    }
+  }, [beads, canShare]);
 
   return (
     <div
@@ -53,6 +80,17 @@ export function EditorToolbar({ catalogOpen, onToggleCatalog }: EditorToolbarPro
         >
           <TrashIcon />
           <span>Удалить</span>
+        </button>
+
+        {/* Share / Поделиться */}
+        <button
+          onClick={handleShare}
+          disabled={!canShare}
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-95"
+          aria-label="Поделиться ссылкой на дизайн"
+        >
+          {copied ? <CheckIcon /> : <ShareIcon />}
+          <span>{copied ? "Скопировано!" : "Поделиться"}</span>
         </button>
 
         {/* Reset design */}
@@ -142,6 +180,43 @@ function ResetIcon() {
     >
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }

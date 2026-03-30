@@ -52,3 +52,10 @@
 
 - **Track both time and distance**: A simple time threshold isn't enough — a long press with no movement should still be a tap (e.g., user thinks carefully before tapping). Conversely, a very fast flick should be a drag, not a tap. **Fix**: require BOTH elapsed time < threshold AND pointer distance < threshold (in NDC coordinates, not pixels, for viewport-independence).
 - **Auto-deselect after drag**: After completing a drag gesture, always call `selectBead(null)` to clear any accidental selection state. This prevents the confusing UX where a bead stays highlighted after the user finishes repositioning it.
+
+## Prisma 7 Configuration
+
+- **No `url` in schema.prisma**: Prisma 7 removed the `url` property from datasource blocks. The connection URL is now in `prisma.config.ts` using `defineConfig()` from `prisma/config`.
+- **dotenv required in prisma.config.ts**: The `env()` helper from `prisma/config` reads from `process.env`, NOT from `.env` files. You must `import "dotenv/config"` at the top of `prisma.config.ts` to load the `.env` file.
+- **Driver adapters required**: PrismaClient constructor needs a driver adapter in v7. For SQLite: `@prisma/adapter-libsql` + `@libsql/client`. For PostgreSQL: `@prisma/adapter-pg`. Import name is `PrismaLibSql` (lowercase 'ql'), NOT `PrismaLibSQL`.
+- **SQLite URLs resolve from config location**: In Prisma 7, relative SQLite URLs (`file:./dev.db`) resolve relative to `prisma.config.ts`, not `schema.prisma`.

@@ -30,6 +30,8 @@ export interface DesignState {
   removeSelected: () => void;
   selectBead: (id: string | null) => void;
   resetDesign: () => void;
+  loadFromCatalogIds: (ids: string[]) => void;
+  clearDesign: () => void;
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────

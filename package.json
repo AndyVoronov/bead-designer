@@ -8,13 +8,21 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
+    "@libsql/client": "^0.17.2",
+    "@prisma/adapter-libsql": "^7.6.0",
+    "@prisma/client": "^7.6.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@react-three/rapier": "^2.2.0",
+    "dotenv": "^17.3.1",
     "lz-string": "^1.5.0",
     "meshline": "^3.3.1",
     "next": "16.2.1",
+    "prisma": "^7.6.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "three": "^0.183.2",
@@ -34,6 +42,7 @@
     "eslint-config-next": "16.2.1",
     "jsdom": "^29.0.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.2"
   }
