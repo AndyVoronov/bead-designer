@@ -10,7 +10,7 @@
 
 ## Current State
 
-S03 completed: Каталог бусин + редактор UI. 100 catalog beads with Russian names across 4 materials, filterable scrollable bottom-sheet catalog. Global Zustand useDesignStore connecting catalog/toolbar/3D scene. Tap-to-select in 3D (200ms/0.05 NDC threshold) with golden wireframe highlight. PacifierClip 3D mesh at chain anchor. Glass-morphism toolbar (Каталог/Удалить/Сброс). EditorCanvas replaces SceneLoader as app entry point. 44 tests pass, build clean. R004 and R009 validated. R005 partial (reorder deferred).
+S04 completed: Шаблоны + шеринг. 8 seeded templates browseable on home page with horizontal-scroll gallery and colored-dot previews. encodeDesign/decodeDesign serialization (JSON → LZ-String → base64url) with versioned wire format. /design/[code] restores exact bead designs, /editor for blank editor. "Поделиться" share button copies URL to clipboard. Template API (GET /api/templates, GET /api/templates/[code]). SQLite via LibSql adapter with Prisma. 57 tests pass, build clean. R006 partial (user-submitted templates deferred to S06). R005 partial (reorder deferred).
 
 ## Architecture / Key Patterns
 
@@ -20,7 +20,7 @@ S03 completed: Каталог бусин + редактор UI. 100 catalog bead
 - **Rendering:** Адаптивный рендеринг (PerformanceMonitor, dynamic DPR) для мобильных
 - **Materials:** PBR-материалы из PNG-текстур (дерево, силикон, вязаное)
 - **Post-processing:** realism-effects (SSGI, HBAO) для красивого освещения
-- **Database:** PostgreSQL + Prisma ORM
+- **Database:** SQLite (LibSql) for local dev + Prisma ORM — PostgreSQL planned for production
 - **Styling:** Tailwind CSS, mobile-first
 - **State:** Zustand для 3D-состояния, React Query для серверного состояния
 - **Deployment:** Node.js на VPS reg.ru
@@ -31,4 +31,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S03 complete, S04-S07 remaining)
+- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S04 complete, S05-S07 remaining)

@@ -2,30 +2,9 @@
 
 This file is the explicit capability and coverage contract for the project.
 
-Use it to track what is actively in scope, what has been validated by completed work, what is intentionally deferred, and what is explicitly out of scope.
-
-Guidelines:
-- Keep requirements capability-oriented, not a giant feature wishlist.
-- Requirements should be atomic, testable, and stated in plain language.
-- Every **Active** requirement should be mapped to a slice, deferred, blocked with reason, or moved out of scope.
-- Each requirement should have one accountable primary owner and may have supporting slices.
-- Research may suggest requirements, but research does not silently make them binding.
-- Validation means the requirement was actually proven by completed work and verification, not just discussed.
-
 ## Active
 
-### R004 — Каталог бусин со свойствами
-- Class: core-capability
-- Status: validated
-- Description: Просматриваемый каталог бусин (~100 видов) с их свойствами: размер, форма (шар, диск, фигурные), материал (дерево, силикон, вязаное), PNG-изображение. Бусины можно фильтровать и листать.
-- Why it matters: Клиенту нужно выбирать из доступных бусин. Без каталога редактор бесполезен.
-- Source: user
-- Primary owning slice: M001/S03
-- Supporting slices: M001/S04
-- Validation: S03 UAT: 100 catalog beads in static array (25 per material: wood, silicone, knit, plastic) with Russian names, shapes (sphere/disc/star/heart/cylinder), sizes, hex colors. Mobile bottom-sheet BeadCatalogPanel with 5 material filter chips (Все/Дерево/Силикон/Вязаное/Пластик). 4-column scrollable grid with touch isolation (stopPropagation + touch-action: pan-y). Tap bead card → addBead() → 3D chain grows. Catalog stays open for batch-adding. Build + 44 tests pass.
-- Notes: Currently static array — S06 will make dynamic (API-backed). PNG textures not yet loaded — uses hex colors. Prisma schema written (no migrations yet, S04 activates DB).
-
-### R005 — Интерактивный редактор (добавить/удалить/перетащить)
+### R005 — Пользователь может добавлять бусины из каталога на цепочку, удалять бусины, менять порядок перетаскиванием. Первый тип изделия — держатель для соски (зажим на одном конце, нить с бусинами). Мобильный UI с тач-жестами.
 - Class: primary-user-loop
 - Status: active
 - Description: Пользователь может добавлять бусины из каталога на цепочку, удалять бусины, менять порядок перетаскиванием. Первый тип изделия — держатель для соски (зажим на одном конце, нить с бусинами). Мобильный UI с тач-жестами.
@@ -36,7 +15,7 @@ Guidelines:
 - Validation: partial — S03 delivers: add bead from catalog (append), remove selected bead via toolbar, reset chain to defaults, tap-to-select in 3D (200ms/0.05 NDC threshold), golden wireframe highlight, deselect on empty-space click, drag beads with kinematic physics, 40-bead max enforcement. EditorCanvas layout with glass-morphism toolbar (Каталог/Удалить/Сброс). Global Zustand useDesignStore as single source of truth. Still missing: bead reorder (перетаскивание для смены порядка) — deferred.
 - Notes: Добавление бусины → создаётся RigidBody с rope joint к соседней. Удаление → разрыв joint, перерасчёт цепи. Перетаскивание → temporary kinematic body. Reorder not yet implemented.
 
-### R006 — Шаблоны и шеринг уникальных кодов/ссылок
+### R006 — Предустановленные шаблоны от админа (листаются в каталоге). Каждое изделие (и шаблон) = уникальный код/URL, по которому восстанавливается точная копия дизайна. Подтверждённые админом пользовательские изделия попадают в каталог шаблонов.
 - Class: integration
 - Status: active
 - Description: Предустановленные шаблоны от админа (листаются в каталоге). Каждое изделие (и шаблон) = уникальный код/URL, по которому восстанавливается точная копия дизайна. Подтверждённые админом пользовательские изделия попадают в каталог шаблонов.
@@ -44,10 +23,10 @@ Guidelines:
 - Source: user
 - Primary owning slice: M001/S04
 - Supporting slices: M001/S06
-- Validation: unmapped
+- Validation: partial — S04 delivers: encodeDesign/decodeDesign pure functions (JSON → LZ-String → base64url) with versioned wire format, 13 serialization tests passing. Template model in SQLite via Prisma, 8 seeded templates with Russian names. GET /api/templates returns approved templates, GET /api/templates/[code] returns single or 404. /design/[code] page deserializes URL code, loads beads into editor via useDesignStore.loadFromCatalogIds. /editor page clears store for blank editor. "Поделиться" button copies share URL to clipboard. Home page template gallery with horizontal-scroll cards, colored-dot previews, "Начать с нуля" card. Graceful error state for invalid codes. Still missing: user-submitted design approval flow (S06), admin template CRUD (S06).
 - Notes: Сериализация массива бусин в компактный формат. Хранение в БД, генерация короткого кода. URL: /design/{code}.
 
-### R007 — Заказ → БД + Telegram-уведомление
+### R007 — Клиент нажимает «Заказать» → заказ сохраняется в базу данных → открывается Telegram с менеджером (t.me/VoronovAndrey) с предзаполненным сообщением, содержащим код изделия. Клиент не заполняет никаких полей.
 - Class: integration
 - Status: active
 - Description: Клиент нажимает «Заказать» → заказ сохраняется в базу данных → открывается Telegram с менеджером (t.me/VoronovAndrey) с предзаполненным сообщением, содержащим код изделия. Клиент не заполняет никаких полей.
@@ -58,7 +37,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Telegram deep link: https://t.me/VoronovAndrey?text=encoded_text. Заказ в БД содержит код изделия, таймстемп, статус.
 
-### R008 — Админка: шаблоны, заказы, каталог
+### R008 — Веб-панель для администратора: управление шаблонами (CRUD), просмотр заказов, подтверждение пользовательских дизайнов для добавления в каталог, управление бусинами. Доступ по простому паролю.
 - Class: admin/support
 - Status: active
 - Description: Веб-панель для администратора: управление шаблонами (CRUD), просмотр заказов, подтверждение пользовательских дизайнов для добавления в каталог, управление бусинами. Доступ по простому паролю.
@@ -69,18 +48,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Deskt ориентирована. Может быть отдельным роутом в Next.js (/admin).
 
-### R009 — Тип изделия: держатель для соски
-- Class: core-capability
-- Status: validated
-- Description: Первый тип изделия — держатель для соски. Включает зажим-клипсу на одном конце и нить с бусинами. Определяет структуру изделия и UI для выбора/конфигурации этого типа.
-- Why it matters: Стартовый продукт. Доказывает концепцию конструктора для конкретного типа изделий.
-- Source: user
-- Primary owning slice: M001/S03
-- Supporting slices: M001/S04
-- Validation: S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top.
-- Notes: Клипса — фиксированный элемент, не бусина. Нить — визуальная компонента (rope joint). Дальше добавляются другие типы. productType "pacifier-holder" stored in useDesignStore.
-
-### R010 — Развёртывание на VPS reg.ru
+### R010 — Приложение развёрнуто и доступно по URL на VPS reg.ru. Production-сборка, HTTPS, автозапуск.
 - Class: constraint
 - Status: active
 - Description: Приложение развёрнуто и доступно по URL на VPS reg.ru. Production-сборка, HTTPS, автозапуск.
@@ -91,7 +59,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Node.js-сервер на VPS. Docker или PM2. Nginx reverse proxy. HTTPS через certbot/Let's Encrypt.
 
-### R011 — Красивый визуал и UX
+### R011 — Визуально привлекательный интерфейс — мягкие цвета, продуманная типографика, плавные анимации, приятные переходы. 3D-сцена с красивым освещением и тенями. Всё должно выглядеть «потрясающе».
 - Class: differentiator
 - Status: active
 - Description: Визуально привлекательный интерфейс — мягкие цвета, продуманная типографика, плавные анимации, приятные переходы. 3D-сцена с красивым освещением и тенями. Всё должно выглядеть «потрясающе».
@@ -104,7 +72,7 @@ Guidelines:
 
 ## Validated
 
-### R001 — 3D-физика цепочки бусин
+### R001 — Цепочка бусин на нити с реалистичной физикой — гравитация, провисание нити (rope/spring joints), столкновения бусин между собой. Бусины можно перетаскивать мышкой/пальцем вдоль нити и по сцене.
 - Class: core-capability
 - Status: validated
 - Description: Цепочка бусин на нити с реалистичной физикой — гравитация, провисание нити (rope/spring joints), столкновения бусин между собой. Бусины можно перетаскивать мышкой/пальцем вдоль нити и по сцене.
@@ -115,7 +83,7 @@ Guidelines:
 - Validation: S01 UAT: Chain of 7+ beads hangs under gravity with rope joints (useRopeJoint), swings when disturbed. MeshLine thread follows bead positions via CatmullRomCurve3 updated every frame. Pointer-drag uses Vercel kinematicPosition pattern with velocity history buffer (HISTORY_SIZE=3) — grab → drag → release with inertia. Build passes clean (0 TS errors). 10 useBeadChain unit tests pass. Tested with up to 12+ beads in browser.
 - Notes: Rope physics stable with damping=2 on all bodies, gravity=[0,-40,0], ROPE_TAUT_FACTOR=0.92. Max chain length tested ~12 beads. Stability at 20-40 beads still needs mobile verification in S02.
 
-### R002 — Мобильная адаптивная отрисовка
+### R002 — 3D-сцена плавно работает на мобильных устройствах. Адаптивное качество рендеринга — на мощных телефонах максимум красоты, на слабых — упрощённо но стабильно 30+ FPS.
 - Class: quality-attribute
 - Status: validated
 - Description: 3D-сцена плавно работает на мобильных устройствах. Адаптивное качество рендеринга — на мощных телефонах максимум красоты, на слабых — упрощённо но стабильно 30+ FPS.
@@ -126,7 +94,7 @@ Guidelines:
 - Validation: S02 UAT: Mobile viewport meta (user-scalable=no, maximum-scale=1) prevents browser pinch-zoom. touch-action: none on html/body/canvas-container/canvas (via !important to override R3F inline style) prevents scroll interference. AdaptiveDpr + AdaptiveEvents + PerformanceMonitor (drei) adjust quality dynamically. OrbitControls disabled during bead drag via Zustand dragStore. 60 FPS sustained with 21 beads on both desktop (1280×720) and Galaxy S24 mobile emulation (360×780). Geometry optimizations: sphere segments 32→24, thread curve points 32→20, ContactShadows resolution 512→256. Build passes clean, 17 tests pass.
 - Notes: Real device testing deferred to S07 (Playwright can't apply CPU throttling). PerformanceMonitor warmup triggers onFallback after flipflops=5 — expected drei behavior, not actual performance issue.
 
-### R003 — Реалистичные материалы бусин
+### R003 — Бусины отображаются с реалистичными PBR-материалами, отличающими дерево, силикон, вязаное и другие материалы.
 - Class: differentiator
 - Status: validated
 - Description: Бусины отображаются с реалистичными PBR-материалами, отличающими дерево, силикон, вязаное и другие материалы.
@@ -137,9 +105,31 @@ Guidelines:
 - Validation: S02 UAT: BeadMaterialConfig map provides distinct PBR properties per BeadType — wood (roughness 0.75, metalness 0.0, bumpScale 0.02), silicone (roughness 0.2, metalness 0.05), knit (roughness 0.9, metalness 0.0, bumpScale 0.03), plastic (roughness 0.35, metalness 0.15). BeadMaterial component renders <meshStandardMaterial> with type-specific properties. Procedural 16×16 canvas noise bump textures for wood and knit. 7 unit tests validate: all roughness/metalness in [0,1], wood rougher than silicone, knit roughest, silicone smoothest, all types distinct. Browser: beads render with visually distinguishable materials.
 - Notes: PNG texture loading not yet implemented — uses procedural bumps. Real PNG diffuse textures + derived normal/roughness maps planned for S03/S06 via future textureUrl prop on BeadMaterial.
 
+### R004 — Просматриваемый каталог бусин (~100 видов) с их свойствами: размер, форма (шар, диск, фигурные), материал (дерево, силикон, вязаное), PNG-изображение. Бусины можно фильтровать и листать.
+- Class: core-capability
+- Status: validated
+- Description: Просматриваемый каталог бусин (~100 видов) с их свойствами: размер, форма (шар, диск, фигурные), материал (дерево, силикон, вязаное), PNG-изображение. Бусины можно фильтровать и листать.
+- Why it matters: Клиенту нужно выбирать из доступных бусин. Без каталога редактор бесполезен.
+- Source: user
+- Primary owning slice: M001/S03
+- Supporting slices: M001/S04
+- Validation: S03 UAT: 100 catalog beads in static array (25 per material: wood, silicone, knit, plastic) with Russian names, shapes (sphere/disc/star/heart/cylinder), sizes, hex colors. Mobile bottom-sheet BeadCatalogPanel with 5 material filter chips (Все/Дерево/Силикон/Вязаное/Пластик). 4-column scrollable grid with touch isolation (stopPropagation + touch-action: pan-y). Tap bead card → addBead() → 3D chain grows. Catalog stays open for batch-adding. Build + 44 tests pass.
+- Notes: Currently static array — S06 will make dynamic (API-backed). PNG textures not yet loaded — uses hex colors. Prisma schema written (no migrations yet, S04 activates DB).
+
+### R009 — Первый тип изделия — держатель для соски. Включает зажим-клипсу на одном конце и нить с бусинами. Определяет структуру изделия и UI для выбора/конфигурации этого типа.
+- Class: core-capability
+- Status: validated
+- Description: Первый тип изделия — держатель для соски. Включает зажим-клипсу на одном конце и нить с бусинами. Определяет структуру изделия и UI для выбора/конфигурации этого типа.
+- Why it matters: Стартовый продукт. Доказывает концепцию конструктора для конкретного типа изделий.
+- Source: user
+- Primary owning slice: M001/S03
+- Supporting slices: M001/S04
+- Validation: S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top.
+- Notes: Клипса — фиксированный элемент, не бусина. Нить — визуальная компонента (rope joint). Дальше добавляются другие типы. productType "pacifier-holder" stored in useDesignStore.
+
 ## Deferred
 
-### R012 — Дополнительные типы изделий
+### R012 — Другие виды игрушек из бусин помимо держателя для соски. Добавляются по одному после запуска.
 - Class: core-capability
 - Status: deferred
 - Description: Другие виды игрушек из бусин помимо держателя для соски. Добавляются по одному после запуска.
@@ -150,7 +140,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Архитектура S01-S04 должна быть достаточно гибкой для добавления новых типов без переработки.
 
-### R013 — Онлайн-оплата
+### R013 — Интеграция платёжной системы для оплаты заказов онлайн.
 - Class: integration
 - Status: deferred
 - Description: Интеграция платёжной системы для оплаты заказов онлайн.
@@ -161,7 +151,7 @@ Guidelines:
 - Validation: unmapped
 - Notes: Сейчас заказ → Telegram-диалог с менеджером. Оплата обсуждается отдельно.
 
-### R014 — Аутентификация пользователей
+### R014 — Регистрация/вход пользователей для сохранения дизайнов, истории заказов, персонализации.
 - Class: compliance/security
 - Status: deferred
 - Description: Регистрация/вход пользователей для сохранения дизайнов, истории заказов, персонализации.
@@ -174,7 +164,7 @@ Guidelines:
 
 ## Out of Scope
 
-### R015 — Десктоп-first опыт
+### R015 — Приоритетная оптимизация под десктоп. Мобильный — основной таргет.
 - Class: constraint
 - Status: out-of-scope
 - Description: Приоритетная оптимизация под десктоп. Мобильный — основной таргет.
@@ -185,7 +175,7 @@ Guidelines:
 - Validation: n/a
 - Notes: Десктоп работает, но не оптимизируется отдельно.
 
-### R016 — Нативные мобильные приложения
+### R016 — iOS/Android приложения. Только мобильный веб.
 - Class: anti-feature
 - Status: out-of-scope
 - Description: iOS/Android приложения. Только мобильный веб.
@@ -196,7 +186,7 @@ Guidelines:
 - Validation: n/a
 - Notes: React Three Fiber + WASM работают в мобильных браузерах. Нативы не нужны.
 
-### R017 — Мультиязычность
+### R017 — Поддержка нескольких языков интерфейса. Только русский.
 - Class: anti-feature
 - Status: out-of-scope
 - Description: Поддержка нескольких языков интерфейса. Только русский.
@@ -211,17 +201,17 @@ Guidelines:
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | core-capability | validated | M001/S01 | M001/S03 | validated |
-| R002 | quality-attribute | validated | M001/S02 | M001/S07 | validated |
-| R003 | differentiator | validated | M001/S02 | M001/S03 | validated |
-| R004 | core-capability | validated | M001/S03 | M001/S04 | validated |
-| R005 | primary-user-loop | active | M001/S03 | M001/S04 | partial |
-| R006 | integration | active | M001/S04 | M001/S06 | mapped |
-| R007 | integration | active | M001/S05 | M001/S06 | mapped |
-| R008 | admin/support | active | M001/S06 | none | mapped |
-| R009 | core-capability | validated | M001/S03 | M001/S04 | validated |
-| R010 | constraint | active | M001/S07 | none | mapped |
-| R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | partial |
+| R001 | core-capability | validated | M001/S01 | M001/S03 | S01 UAT: Chain of 7+ beads hangs under gravity with rope joints (useRopeJoint), swings when disturbed. MeshLine thread follows bead positions via CatmullRomCurve3 updated every frame. Pointer-drag uses Vercel kinematicPosition pattern with velocity history buffer (HISTORY_SIZE=3) — grab → drag → release with inertia. Build passes clean (0 TS errors). 10 useBeadChain unit tests pass. Tested with up to 12+ beads in browser. |
+| R002 | quality-attribute | validated | M001/S02 | M001/S07 | S02 UAT: Mobile viewport meta (user-scalable=no, maximum-scale=1) prevents browser pinch-zoom. touch-action: none on html/body/canvas-container/canvas (via !important to override R3F inline style) prevents scroll interference. AdaptiveDpr + AdaptiveEvents + PerformanceMonitor (drei) adjust quality dynamically. OrbitControls disabled during bead drag via Zustand dragStore. 60 FPS sustained with 21 beads on both desktop (1280×720) and Galaxy S24 mobile emulation (360×780). Geometry optimizations: sphere segments 32→24, thread curve points 32→20, ContactShadows resolution 512→256. Build passes clean, 17 tests pass. |
+| R003 | differentiator | validated | M001/S02 | M001/S03 | S02 UAT: BeadMaterialConfig map provides distinct PBR properties per BeadType — wood (roughness 0.75, metalness 0.0, bumpScale 0.02), silicone (roughness 0.2, metalness 0.05), knit (roughness 0.9, metalness 0.0, bumpScale 0.03), plastic (roughness 0.35, metalness 0.15). BeadMaterial component renders <meshStandardMaterial> with type-specific properties. Procedural 16×16 canvas noise bump textures for wood and knit. 7 unit tests validate: all roughness/metalness in [0,1], wood rougher than silicone, knit roughest, silicone smoothest, all types distinct. Browser: beads render with visually distinguishable materials. |
+| R004 | core-capability | validated | M001/S03 | M001/S04 | S03 UAT: 100 catalog beads in static array (25 per material: wood, silicone, knit, plastic) with Russian names, shapes (sphere/disc/star/heart/cylinder), sizes, hex colors. Mobile bottom-sheet BeadCatalogPanel with 5 material filter chips (Все/Дерево/Силикон/Вязаное/Пластик). 4-column scrollable grid with touch isolation (stopPropagation + touch-action: pan-y). Tap bead card → addBead() → 3D chain grows. Catalog stays open for batch-adding. Build + 44 tests pass. |
+| R005 | primary-user-loop | active | M001/S03 | M001/S04 | partial — S03 delivers: add bead from catalog (append), remove selected bead via toolbar, reset chain to defaults, tap-to-select in 3D (200ms/0.05 NDC threshold), golden wireframe highlight, deselect on empty-space click, drag beads with kinematic physics, 40-bead max enforcement. EditorCanvas layout with glass-morphism toolbar (Каталог/Удалить/Сброс). Global Zustand useDesignStore as single source of truth. Still missing: bead reorder (перетаскивание для смены порядка) — deferred. |
+| R006 | integration | active | M001/S04 | M001/S06 | partial — S04 delivers: encodeDesign/decodeDesign pure functions (JSON → LZ-String → base64url) with versioned wire format, 13 serialization tests passing. Template model in SQLite via Prisma, 8 seeded templates with Russian names. GET /api/templates returns approved templates, GET /api/templates/[code] returns single or 404. /design/[code] page deserializes URL code, loads beads into editor via useDesignStore.loadFromCatalogIds. /editor page clears store for blank editor. "Поделиться" button copies share URL to clipboard. Home page template gallery with horizontal-scroll cards, colored-dot previews, "Начать с нуля" card. Graceful error state for invalid codes. Still missing: user-submitted design approval flow (S06), admin template CRUD (S06). |
+| R007 | integration | active | M001/S05 | M001/S06 | unmapped |
+| R008 | admin/support | active | M001/S06 | none | unmapped |
+| R009 | core-capability | validated | M001/S03 | M001/S04 | S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top. |
+| R010 | constraint | active | M001/S07 | none | unmapped |
+| R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay. S02 adds PBR materials per BeadType (wood/silicone/knit/plastic with distinct roughness/metalness/bump), procedural bump textures for wood and knit, adaptive rendering with PerformanceMonitor. S03 adds glass-morphism toolbar (bg-white/70 backdrop-blur-md), smooth slide animations (translate-y transition), golden wireframe highlight on selection, inline SVG icons, Russian UI copy, scale-on-press tactile feedback (active:scale-95), PacifierClip metallic silver 3D mesh. Still needs: real PNG textures from user photos (S06), production post-processing (S07). |
 | R012 | core-capability | deferred | none | none | unmapped |
 | R013 | integration | deferred | none | none | unmapped |
 | R014 | compliance/security | deferred | none | none | unmapped |
@@ -233,6 +223,5 @@ Guidelines:
 
 - Active requirements: 6
 - Mapped to slices: 6
-- Validated: 5
-- Partially validated: 2 (R005, R011)
+- Validated: 5 (R001, R002, R003, R004, R009)
 - Unmapped active requirements: 0
