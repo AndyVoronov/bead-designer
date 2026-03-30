@@ -113,7 +113,7 @@ export function ThreadLine({
 
     // CatmullRom spline through all points → smooth thread
     const curve = new THREE.CatmullRomCurve3(points, false, "catmullrom", 0.5);
-    geoRef.current.setPoints(curve.getPoints(32));
+    geoRef.current.setPoints(curve.getPoints(20));
   });
 
   return (

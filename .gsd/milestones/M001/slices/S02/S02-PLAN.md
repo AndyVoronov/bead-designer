@@ -71,7 +71,7 @@
   - Verify: `npx vitest run` passes all tests (existing + new); browser shows 4 visually distinct bead types (wood matte, silicone glossy, knit bumpy, plastic sheen)
   - Done when: each bead type renders with a distinct look that a human can tell apart
 
-- [ ] **T03: Performance tuning and 20+ bead verification** `est:30m`
+- [x] **T03: Performance tuning and 20+ bead verification** `est:30m`
   - Why: R002 requires 30+ FPS with 20+ beads on mobile. Must test this explicitly and apply mitigations if needed. Also optimizes geometry detail for mobile (sphere segments, thread curve points) to reduce draw calls and vertex count.
   - Files: `src/components/scene/BeadRigidBody.tsx`, `src/components/scene/ThreadLine.tsx`, `src/components/scene/Scene.tsx`, `src/components/SceneLoader.tsx`
   - Do:

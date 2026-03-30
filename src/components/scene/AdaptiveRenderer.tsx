@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { AdaptiveDpr, AdaptiveEvents, PerformanceMonitor } from "@react-three/drei";
 
 /**
@@ -16,6 +17,10 @@ import { AdaptiveDpr, AdaptiveEvents, PerformanceMonitor } from "@react-three/dr
  * This leaves headroom above the 30 FPS minimum target.
  */
 export default function AdaptiveRenderer() {
+  useEffect(() => {
+    console.log("[perf] AdaptiveRenderer initialized — monitoring FPS");
+  }, []);
+
   return (
     <>
       <AdaptiveDpr pixelated />
@@ -23,8 +28,12 @@ export default function AdaptiveRenderer() {
       <PerformanceMonitor
         flipflops={5}
         bounds={(refreshRate) => [refreshRate * 0.67, refreshRate * 0.92]}
-        onIncline={() => console.log("[perf] FPS improving — increasing quality")}
-        onDecline={() => console.log("[perf] FPS dropping — reducing quality")}
+        onIncline={(factor) =>
+          console.log("[perf] FPS improving — increasing quality, factor:", factor)
+        }
+        onDecline={(factor) =>
+          console.log("[perf] FPS dropping — reducing quality, factor:", factor)
+        }
         onFallback={() =>
           console.warn("[perf] FPS critically low — fallback applied")
         }

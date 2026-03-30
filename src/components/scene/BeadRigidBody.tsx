@@ -13,6 +13,8 @@ export interface BeadRigidBodyProps {
   type: BeadType;
   /** Linear and angular damping (default: 2 — stabilizes chain swing). */
   damping?: number;
+  /** Sphere geometry segment count (default: 24). Lower = fewer vertices, better perf. */
+  segments?: number;
   position: [number, number, number];
 }
 
@@ -22,7 +24,7 @@ export interface BeadRigidBodyProps {
  * Supports pointer-drag via the useDrag hook (kinematic position pattern).
  */
 export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
-  ({ radius, color, type, damping = 2, position }, fwdRef) => {
+  ({ radius, color, type, damping = 2, segments = 24, position }, fwdRef) => {
     // Stable local ref for useDrag (reads .current in useFrame — needs RefObject,
     // not the polymorphic ForwardedRef which can be a callback).
     const bodyRef = useRef<RapierRigidBody>(null);
@@ -57,7 +59,7 @@ export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
           onPointerOver={onPointerOver}
           onPointerOut={onPointerOut}
         >
-          <sphereGeometry args={[radius, 32, 32]} />
+          <sphereGeometry args={[radius, segments, segments]} />
           <BeadMaterial type={type} color={color} />
         </mesh>
       </RigidBody>
