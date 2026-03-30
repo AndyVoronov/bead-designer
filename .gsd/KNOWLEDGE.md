@@ -38,3 +38,17 @@
 
 - **Warmup triggers onFallback**: PerformanceMonitor starts at a lower quality factor (e.g., 0.6) and ramps up. During this ramp-up, rapid quality changes count as "flipflops". After `flipflops` threshold (default 5), `onFallback` fires even when FPS is actually fine. This is expected behavior — don't treat it as a real performance warning.
 - **CPU throttling unavailable in Playwright**: Chrome DevTools CPU throttling (2×/4×/6× slowdown) is a DevTools-only feature not available via Playwright's device emulation. Emulated devices run at native clock speed.
+
+## Zustand Store Testing
+
+- **Direct getState() calls, no renderHook**: Zustand stores don't need `@testing-library/react`'s `renderHook`. Import the store and call `store.getState()` directly for state reads, and `store.getState().action()` for mutations. Call `useDesignStore.setState({ beads: [] })` or the action-based reset in `beforeEach` for test isolation.
+
+## Touch Isolation in Mixed Canvas/DOM Layouts
+
+- **Global touch-action: none breaks DOM scroll**: When the CSS sets `touch-action: none` on html/body to prevent browser gestures on a WebGL canvas, ALL child scroll containers break. **Fix**: explicitly set `touch-action: pan-y` on specific scroll containers that need vertical scroll (e.g., `.catalog-scroll { touch-action: pan-y; }`). This must be combined with `stopPropagation` on `onTouchStart`/`onTouchMove` events on the panel container to prevent events from reaching the canvas.
+- **Belt-and-suspenders approach**: Use all three: CSS class with !important + inline style on the element + JS stopPropagation. R3F's inline style override makes a single-layer fix unreliable.
+
+## Tap vs Drag Detection in Pointer Events
+
+- **Track both time and distance**: A simple time threshold isn't enough — a long press with no movement should still be a tap (e.g., user thinks carefully before tapping). Conversely, a very fast flick should be a drag, not a tap. **Fix**: require BOTH elapsed time < threshold AND pointer distance < threshold (in NDC coordinates, not pixels, for viewport-independence).
+- **Auto-deselect after drag**: After completing a drag gesture, always call `selectBead(null)` to clear any accidental selection state. This prevents the confusing UX where a bead stays highlighted after the user finishes repositioning it.

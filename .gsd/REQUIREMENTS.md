@@ -16,14 +16,14 @@ Guidelines:
 
 ### R004 — Каталог бусин со свойствами
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Просматриваемый каталог бусин (~100 видов) с их свойствами: размер, форма (шар, диск, фигурные), материал (дерево, силикон, вязаное), PNG-изображение. Бусины можно фильтровать и листать.
 - Why it matters: Клиенту нужно выбирать из доступных бусин. Без каталога редактор бесполезен.
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: M001/S04
-- Validation: unmapped
-- Notes: Бусины хранятся в БД. PNG-текстуры — в файловой системе или CDN. Ленивая загрузка текстур для производительности.
+- Validation: S03 UAT: 100 catalog beads in static array (25 per material: wood, silicone, knit, plastic) with Russian names, shapes (sphere/disc/star/heart/cylinder), sizes, hex colors. Mobile bottom-sheet BeadCatalogPanel with 5 material filter chips (Все/Дерево/Силикон/Вязаное/Пластик). 4-column scrollable grid with touch isolation (stopPropagation + touch-action: pan-y). Tap bead card → addBead() → 3D chain grows. Catalog stays open for batch-adding. Build + 44 tests pass.
+- Notes: Currently static array — S06 will make dynamic (API-backed). PNG textures not yet loaded — uses hex colors. Prisma schema written (no migrations yet, S04 activates DB).
 
 ### R005 — Интерактивный редактор (добавить/удалить/перетащить)
 - Class: primary-user-loop
@@ -33,8 +33,8 @@ Guidelines:
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: M001/S04
-- Validation: unmapped
-- Notes: Добавление бусины → создаётся RigidBody с rope joint к соседней. Удаление → разрыв joint, перерасчёт цепи. Перетаскивание → temporary kinematic body.
+- Validation: partial — S03 delivers: add bead from catalog (append), remove selected bead via toolbar, reset chain to defaults, tap-to-select in 3D (200ms/0.05 NDC threshold), golden wireframe highlight, deselect on empty-space click, drag beads with kinematic physics, 40-bead max enforcement. EditorCanvas layout with glass-morphism toolbar (Каталог/Удалить/Сброс). Global Zustand useDesignStore as single source of truth. Still missing: bead reorder (перетаскивание для смены порядка) — deferred.
+- Notes: Добавление бусины → создаётся RigidBody с rope joint к соседней. Удаление → разрыв joint, перерасчёт цепи. Перетаскивание → temporary kinematic body. Reorder not yet implemented.
 
 ### R006 — Шаблоны и шеринг уникальных кодов/ссылок
 - Class: integration
@@ -71,14 +71,14 @@ Guidelines:
 
 ### R009 — Тип изделия: держатель для соски
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Первый тип изделия — держатель для соски. Включает зажим-клипсу на одном конце и нить с бусинами. Определяет структуру изделия и UI для выбора/конфигурации этого типа.
 - Why it matters: Стартовый продукт. Доказывает концепцию конструктора для конкретного типа изделий.
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: M001/S04
-- Validation: unmapped
-- Notes: Клипса — фиксированный элемент, не бусина. Нить — визуальная компонента (可以是 rope joint). Дальше добавляются другие типы.
+- Validation: S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top.
+- Notes: Клипса — фиксированный элемент, не бусина. Нить — визуальная компонента (rope joint). Дальше добавляются другие типы. productType "pacifier-holder" stored in useDesignStore.
 
 ### R010 — Развёртывание на VPS reg.ru
 - Class: constraint
@@ -99,7 +99,7 @@ Guidelines:
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: M001/S02, M001/S03, M001/S07
-- Validation: partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay. S02 adds PBR materials per BeadType (wood/silicone/knit/plastic with distinct roughness/metalness/bump), procedural bump textures for wood and knit, adaptive rendering with PerformanceMonitor. Still needs: real PNG textures from user photos (S03/S06), full mobile UI polish (S03), production post-processing (S07).
+- Validation: partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay. S02 adds PBR materials per BeadType (wood/silicone/knit/plastic with distinct roughness/metalness/bump), procedural bump textures for wood and knit, adaptive rendering with PerformanceMonitor. S03 adds glass-morphism toolbar (bg-white/70 backdrop-blur-md), smooth slide animations (translate-y transition), golden wireframe highlight on selection, inline SVG icons, Russian UI copy, scale-on-press tactile feedback (active:scale-95), PacifierClip metallic silver 3D mesh. Still needs: real PNG textures from user photos (S06), production post-processing (S07).
 - Notes: S01 establishes visual foundation. S02 adds PBR materials. S03 adds mobile UI design. S07 adds production polish.
 
 ## Validated
@@ -214,12 +214,12 @@ Guidelines:
 | R001 | core-capability | validated | M001/S01 | M001/S03 | validated |
 | R002 | quality-attribute | validated | M001/S02 | M001/S07 | validated |
 | R003 | differentiator | validated | M001/S02 | M001/S03 | validated |
-| R004 | core-capability | active | M001/S03 | M001/S04 | mapped |
-| R005 | primary-user-loop | active | M001/S03 | M001/S04 | mapped |
+| R004 | core-capability | validated | M001/S03 | M001/S04 | validated |
+| R005 | primary-user-loop | active | M001/S03 | M001/S04 | partial |
 | R006 | integration | active | M001/S04 | M001/S06 | mapped |
 | R007 | integration | active | M001/S05 | M001/S06 | mapped |
 | R008 | admin/support | active | M001/S06 | none | mapped |
-| R009 | core-capability | active | M001/S03 | M001/S04 | mapped |
+| R009 | core-capability | validated | M001/S03 | M001/S04 | validated |
 | R010 | constraint | active | M001/S07 | none | mapped |
 | R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | partial |
 | R012 | core-capability | deferred | none | none | unmapped |
@@ -231,8 +231,8 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 8
-- Mapped to slices: 8
-- Validated: 3
-- Partially validated: 1 (R011)
+- Active requirements: 6
+- Mapped to slices: 6
+- Validated: 5
+- Partially validated: 2 (R005, R011)
 - Unmapped active requirements: 0

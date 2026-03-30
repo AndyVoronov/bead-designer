@@ -10,7 +10,7 @@
 
 ## Current State
 
-S02 completed: Mobile-adaptive 3D rendering + PBR materials. Mobile viewport lock, touch-action CSS, AdaptiveRenderer (AdaptiveDpr + AdaptiveEvents + PerformanceMonitor), OrbitControls/drag conflict resolution via Zustand dragStore. Type-specific PBR materials for wood/silicone/knit/plastic with procedural bump textures. Geometry optimizations: 60 FPS sustained with 21 beads on mobile emulation. Build + 17 tests pass.
+S03 completed: Каталог бусин + редактор UI. 100 catalog beads with Russian names across 4 materials, filterable scrollable bottom-sheet catalog. Global Zustand useDesignStore connecting catalog/toolbar/3D scene. Tap-to-select in 3D (200ms/0.05 NDC threshold) with golden wireframe highlight. PacifierClip 3D mesh at chain anchor. Glass-morphism toolbar (Каталог/Удалить/Сброс). EditorCanvas replaces SceneLoader as app entry point. 44 tests pass, build clean. R004 and R009 validated. R005 partial (reorder deferred).
 
 ## Architecture / Key Patterns
 
@@ -31,4 +31,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S02 complete, S03-S07 remaining)
+- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S03 complete, S04-S07 remaining)

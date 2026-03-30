@@ -20,7 +20,7 @@
 ## Proof Strategy
 
 - ~~Мобильная производительность~~ → **retired in S02**: 60 FPS sustained with 21 beads on desktop and Galaxy S24 emulation. Adaptive rendering (AdaptiveDpr + PerformanceMonitor) in place. Real device testing deferred to S07.
-- ~~PBR из PNG~~ → **partially retired in S02**: Type-specific PBR materials (wood/silicone/knit/plastic) with distinct roughness/metalness/bump properties. Procedural noise bump textures. Real PNG texture loading deferred to S03/S06.
+- ~~PBR из PNG~~ → **partially retired in S02, extended in S03**: Type-specific PBR materials (wood/silicone/knit/plastic) with distinct roughness/metalness/bump properties. Procedural noise bump textures. 100 catalog beads with hex colors (no PNG textures yet). Real PNG texture loading deferred to S06.
 
 ## Verification Classes
 
@@ -56,7 +56,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Мобильный рендеринг + PBR-материалы** `risk:high` `depends:[S01]`
   > After this: Цепочка бусин рендерится на телефоне с реалистичными материалами (дерево, силикон, вязаное из PNG), адаптивное качество, тач-жесты, 30+ FPS.
 
-- [ ] **S03: Каталог бусин + редактор UI** `risk:medium` `depends:[S02]`
+- [x] **S03: Каталог бусин + редактор UI** `risk:medium` `depends:[S02]`
   > After this: Пользователь на мобильном листает каталог бусин, добавляет/удаляет бусины на цепочку, собирает держатель для соски. Полный редакторский UI.
 
 - [ ] **S04: Шаблоны + шеринг** `risk:medium` `depends:[S03]`
