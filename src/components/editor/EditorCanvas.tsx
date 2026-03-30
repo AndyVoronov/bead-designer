@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useDesignStore } from "@/stores/useDesignStore";
 import { EditorToolbar } from "./EditorToolbar";
+import { BeadCatalogPanel } from "./BeadCatalogPanel";
 
 // Dynamically import Scene to avoid SSR issues with Three.js / WebGL
 const Scene = dynamic(() => import("@/components/scene/Scene"), {
@@ -12,7 +13,7 @@ const Scene = dynamic(() => import("@/components/scene/Scene"), {
 
 /**
  * Main editor layout: full-viewport 3D canvas with bottom toolbar and
- * slide-up catalog panel placeholder (T04 fills in the real catalog UI).
+ * slide-up catalog bottom sheet.
  *
  * EditorCanvas is the Zustand subscriber that bridges store ↔ scene.
  * The Scene component stays "dumb" — it receives beads as a prop.
@@ -33,15 +34,11 @@ export default function EditorCanvas() {
         <Scene beads={beads} selectedBeadId={selectedBeadId} />
       </div>
 
-      {/* ── Catalog Panel Placeholder ────────────────────────────── */}
-      {/* T04 will replace this with the real catalog bottom sheet */}
-      {catalogOpen && (
-        <div className="flex-shrink-0 bg-white/90 backdrop-blur-md border-t border-gray-200/50 animate-slide-up">
-          <div className="h-48 flex items-center justify-center text-gray-400 text-sm select-none">
-            Каталог — загрузка…
-          </div>
-        </div>
-      )}
+      {/* ── Catalog Bottom Sheet ─────────────────────────────────── */}
+      <BeadCatalogPanel
+        isOpen={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+      />
 
       {/* ── Bottom Toolbar ───────────────────────────────────────── */}
       <EditorToolbar

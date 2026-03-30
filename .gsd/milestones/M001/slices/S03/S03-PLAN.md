@@ -100,7 +100,7 @@
   - Verify: `npm run build` passes. Browser: app loads with 3D chain + toolbar at bottom. "Каталог" button toggles catalog panel open/close. Bead count updates. Add/Remove/Reset buttons work.
   - Done when: EditorCanvas renders 3D scene with toolbar overlay, all toolbar buttons functional, catalog toggle works, mobile viewport fills screen
 
-- [ ] **T04: Build mobile BeadCatalogPanel with filters and add-to-chain** `est:1h`
+- [x] **T04: Build mobile BeadCatalogPanel with filters and add-to-chain** `est:1h`
   - Why: This is the core of R004 — the browsable catalog. Users must be able to scroll through beads, filter by material, and tap to add to the chain. Without this, the editor is useless.
   - Files: `src/components/editor/BeadCatalogPanel.tsx`, `src/components/editor/CatalogBeadItem.tsx`, `src/components/editor/EditorCanvas.tsx`, `src/app/globals.css`
   - Do:

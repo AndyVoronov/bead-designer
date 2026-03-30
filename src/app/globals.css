@@ -21,3 +21,11 @@ body {
 .canvas-container canvas {
   touch-action: none !important;
 }
+
+/* Catalog bead grid: allow vertical pan scrolling inside the catalog panel.
+   The global touch-action: none on html/body blocks all scrolling — this
+   class overrides it for the catalog's scrollable bead grid. */
+.catalog-scroll {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
