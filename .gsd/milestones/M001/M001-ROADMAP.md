@@ -65,7 +65,7 @@ This milestone is complete only when all are true:
 - [x] **S05: Заказ + Telegram** `risk:medium` `depends:[S04]`
   > After this: Кнопка «Заказать» сохраняет заказ в БД и открывает Telegram с менеджером с предзаполненным сообщением и кодом изделия.
 
-- [ ] **S06: Админка** `risk:low` `depends:[S04,S05]`
+- [x] **S06: Админка** `risk:low` `depends:[S04,S05]`
   > After this: Админ через веб-панель управляет шаблонами (CRUD), просматривает заказы, подтверждает пользовательские дизайны в каталог.
 
 - [ ] **S07: Интеграция + деплой** `risk:low` `depends:[S06]`

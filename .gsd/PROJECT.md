@@ -10,7 +10,7 @@
 
 ## Current State
 
-S04 completed: Шаблоны + шеринг. 8 seeded templates browseable on home page with horizontal-scroll gallery and colored-dot previews. encodeDesign/decodeDesign serialization (JSON → LZ-String → base64url) with versioned wire format. /design/[code] restores exact bead designs, /editor for blank editor. "Поделиться" share button copies URL to clipboard. Template API (GET /api/templates, GET /api/templates/[code]). SQLite via LibSql adapter with Prisma. 57 tests pass, build clean. R006 partial (user-submitted templates deferred to S06). R005 partial (reorder deferred).
+S06 completed: Админка. Password-protected admin panel at /admin with proxy.ts cookie guard. Admin layout with sidebar (Шаблоны, Заказы, Бусины). Template management: list all (approved + unapproved), create, approve/unapprove, delete. Order management: list, status badges, status change, promote-to-template ("Сделать шаблоном"). Bead catalog viewer: 100 beads from static array with material filter + search. 6 admin API routes under /api/admin/* (separate from public /api/*). R006 and R008 validated. 64 tests pass, build clean with 16 routes. S07 (integration + deploy) remaining.
 
 ## Architecture / Key Patterns
 
@@ -31,4 +31,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S05 complete, S06-S07 remaining)
+- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S06 complete, S07 remaining)

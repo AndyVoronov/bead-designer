@@ -67,3 +67,8 @@
 ## Turbopack + Prisma Generate Cache
 
 - **`.next` cache goes stale after `prisma generate`**: Turbopack caches Prisma client types. After running `prisma generate` (e.g., after adding a new model), the `.next` cache may still reference old types, causing TypeScript errors or runtime type mismatches. **Fix**: delete the `.next` folder and restart the dev server after any Prisma schema change that triggers `prisma generate`.
+
+## Next.js 16 proxy.ts (not middleware.ts)
+
+- **Next.js 16 replaced middleware.ts with proxy.ts**: The file `src/proxy.ts` handles what `src/middleware.ts` did in Next.js 14/15 — request interception, redirects, and response modification. If you create `middleware.ts`, it will be ignored or conflict with `proxy.ts`.
+- **Auth pattern in proxy.ts**: Check for a cookie on specific path prefixes. Return `NextResponse.redirect()` for page routes and `NextResponse.json({ error: "Unauthorized" }, { status: 401 })` for API routes. Whitelist auth endpoints (e.g., `/api/admin/auth`) so login attempts work without a cookie.

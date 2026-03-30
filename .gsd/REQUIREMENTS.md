@@ -15,28 +15,6 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: partial — S03 delivers: add bead from catalog (append), remove selected bead via toolbar, reset chain to defaults, tap-to-select in 3D (200ms/0.05 NDC threshold), golden wireframe highlight, deselect on empty-space click, drag beads with kinematic physics, 40-bead max enforcement. EditorCanvas layout with glass-morphism toolbar (Каталог/Удалить/Сброс). Global Zustand useDesignStore as single source of truth. Still missing: bead reorder (перетаскивание для смены порядка) — deferred.
 - Notes: Добавление бусины → создаётся RigidBody с rope joint к соседней. Удаление → разрыв joint, перерасчёт цепи. Перетаскивание → temporary kinematic body. Reorder not yet implemented.
 
-### R006 — Предустановленные шаблоны от админа (листаются в каталоге). Каждое изделие (и шаблон) = уникальный код/URL, по которому восстанавливается точная копия дизайна. Подтверждённые админом пользовательские изделия попадают в каталог шаблонов.
-- Class: integration
-- Status: active
-- Description: Предустановленные шаблоны от админа (листаются в каталоге). Каждое изделие (и шаблон) = уникальный код/URL, по которому восстанавливается точная копия дизайна. Подтверждённые админом пользовательские изделия попадают в каталог шаблонов.
-- Why it matters: Шаблоны — точка входа для клиентов. Шеринг — органический рост.
-- Source: user
-- Primary owning slice: M001/S04
-- Supporting slices: M001/S06
-- Validation: partial — S04 delivers: encodeDesign/decodeDesign pure functions (JSON → LZ-String → base64url) with versioned wire format, 13 serialization tests passing. Template model in SQLite via Prisma, 8 seeded templates with Russian names. GET /api/templates returns approved templates, GET /api/templates/[code] returns single or 404. /design/[code] page deserializes URL code, loads beads into editor via useDesignStore.loadFromCatalogIds. /editor page clears store for blank editor. "Поделиться" button copies share URL to clipboard. Home page template gallery with horizontal-scroll cards, colored-dot previews, "Начать с нуля" card. Graceful error state for invalid codes. Still missing: user-submitted design approval flow (S06), admin template CRUD (S06).
-- Notes: Сериализация массива бусин в компактный формат. Хранение в БД, генерация короткого кода. URL: /design/{code}.
-
-### R008 — Веб-панель для администратора: управление шаблонами (CRUD), просмотр заказов, подтверждение пользовательских дизайнов для добавления в каталог, управление бусинами. Доступ по простому паролю.
-- Class: admin/support
-- Status: active
-- Description: Веб-панель для администратора: управление шаблонами (CRUD), просмотр заказов, подтверждение пользовательских дизайнов для добавления в каталог, управление бусинами. Доступ по простому паролю.
-- Why it matters: Без админки невозможно управлять контентом и обрабатывать заказы.
-- Source: user
-- Primary owning slice: M001/S06
-- Supporting slices: none
-- Validation: unmapped
-- Notes: Deskt ориентирована. Может быть отдельным роутом в Next.js (/admin).
-
 ### R010 — Приложение развёрнуто и доступно по URL на VPS reg.ru. Production-сборка, HTTPS, автозапуск.
 - Class: constraint
 - Status: active
@@ -116,6 +94,17 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: S05 UAT: Order model in Prisma schema with migration (id, designCode, designState, status, beadCount, createdAt). POST /api/orders creates order with 201, validates designCode+beadCount (400 on missing), try/catch with console.error (500 on DB errors). GET /api/orders returns all orders ordered by createdAt desc. generateTelegramLink(designCode, beadCount) pure function produces `https://t.me/VoronovAndrey?text=...` with encodeURIComponent for Russian text. 7 unit tests pass (URL format, encoding, edge cases). "Заказать" CTA button in EditorToolbar — full-width green (#10b981) button, disabled when beads.length===0, loading state "Отправка..." with disabled during fetch, error feedback for 3s on failure. Full browser flow verified: add 3+ beads → click "Заказать" → GET /api/orders returns new order with status "new" and correct designCode/beadCount → Telegram opens with pre-filled Russian message containing greeting, design code, and bead count. Mobile viewport (390×844) toolbar layout works without overflow. 64 tests pass, TypeScript clean, production build succeeds.
 - Notes: Orders are anonymous (no PII). designState stored as String (JSON.stringify) for SQLite compatibility. Double-submit protection via isOrdering disabled state. Telegram opens in new tab via window.open.
 
+### R008 — Веб-панель для администратора: управление шаблонами (CRUD), просмотр заказов, подтверждение пользовательских дизайнов для добавления в каталог, управление бусинами. Доступ по простому паролю.
+- Class: admin/support
+- Status: validated
+- Description: Веб-панель для администратора: управление шаблонами (CRUD), просмотр заказов, подтверждение пользовательских дизайнов для добавления в каталог, управление бусинами. Доступ по простому паролю.
+- Why it matters: Без админки невозможно управлять контентом и обрабатывать заказы.
+- Source: user
+- Primary owning slice: M001/S06
+- Supporting slices: none
+- Validation: S06 UAT: Password-protected admin panel at /admin via proxy.ts cookie guard (admin_token httpOnly cookie). Login page at /admin/login validates ADMIN_PASSWORD env var. Admin layout with sidebar navigation (Шаблоны/Заказы/Бусины) and logout. Template management: list all (approved + unapproved), create (name + designCode), approve/unapprove toggle, delete with confirmation. Order management: list all orders, status badges (new/processing/completed), status dropdown change, promote-to-template ("Сделать шаблоном") creating approved template from order's designCode. Bead catalog viewer: 100 beads from CATALOG_BEADS static array with material filter dropdown and name search. Full browser flow verified: login redirect, wrong password error, correct password → cookie set → templates page, all 3 pages functional, logout clears session, unauthenticated access → redirect to login. 64 tests pass, zero TS errors, production build succeeds with all 16 routes.
+- Notes: Deskt ориентирована. Может быть отдельным роутом в Next.js (/admin).
+
 ### R009 — Первый тип изделия — держатель для соски. Включает зажим-клипсу на одном конце и нить с бусинами. Определяет структуру изделия и UI для выбора/конфигурации этого типа.
 - Class: core-capability
 - Status: validated
@@ -126,6 +115,17 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: M001/S04
 - Validation: S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top.
 - Notes: Клипса — фиксированный элемент, не бусина. Нить — визуальная компонента (rope joint). Дальше добавляются другие типы. productType "pacifier-holder" stored in useDesignStore.
+
+### R006 — Предустановленные шаблоны от админа (листаются в каталоге). Каждое изделие (и шаблон) = уникальный код/URL, по которому восстанавливается точная копия дизайна. Подтверждённые админом пользовательские изделия попадают в каталог шаблонов.
+- Class: integration
+- Status: validated
+- Description: Предустановленные шаблоны от админа (листаются в каталоге). Каждое изделие (и шаблон) = уникальный код/URL, по которому восстанавливается точная копия дизайна. Подтверждённые админом пользовательские изделия попадают в каталог шаблонов.
+- Why it matters: Шаблоны — точка входа для клиентов. Шеринг — органический рост.
+- Source: user
+- Primary owning slice: M001/S04
+- Supporting slices: M001/S06
+- Validation: S04 UAT + S06 UAT: S04 delivers encodeDesign/decodeDesign pure functions (13 serialization tests), 8 seeded templates, GET /api/templates (approved only), /design/[code] page, share button, home page template gallery. S06 completes remaining parts: user-submitted design approval via "Сделать шаблоном" button on admin orders page — promotes order's designCode to new approved template in catalog. Admin template CRUD at /api/admin/templates (create, approve/unapprove, delete) enables managing templates from admin panel. Full flow verified: admin logs in → views orders → promotes user design to template → template appears in public catalog.
+- Notes: Сериализация массива бусин в компактный формат. Хранение в БД, генерация короткого кода. URL: /design/{code}.
 
 ## Deferred
 
@@ -206,9 +206,9 @@ This file is the explicit capability and coverage contract for the project.
 | R003 | differentiator | validated | M001/S02 | M001/S03 | S02 UAT: BeadMaterialConfig map provides distinct PBR properties per BeadType — wood (roughness 0.75, metalness 0.0, bumpScale 0.02), silicone (roughness 0.2, metalness 0.05), knit (roughness 0.9, metalness 0.0, bumpScale 0.03), plastic (roughness 0.35, metalness 0.15). BeadMaterial component renders <meshStandardMaterial> with type-specific properties. Procedural 16×16 canvas noise bump textures for wood and knit. 7 unit tests validate: all roughness/metalness in [0,1], wood rougher than silicone, knit roughest, silicone smoothest, all types distinct. Browser: beads render with visually distinguishable materials. |
 | R004 | core-capability | validated | M001/S03 | M001/S04 | S03 UAT: 100 catalog beads in static array (25 per material: wood, silicone, knit, plastic) with Russian names, shapes (sphere/disc/star/heart/cylinder), sizes, hex colors. Mobile bottom-sheet BeadCatalogPanel with 5 material filter chips (Все/Дерево/Силикон/Вязаное/Пластик). 4-column scrollable grid with touch isolation (stopPropagation + touch-action: pan-y). Tap bead card → addBead() → 3D chain grows. Catalog stays open for batch-adding. Build + 44 tests pass. |
 | R005 | primary-user-loop | active | M001/S03 | M001/S04 | partial — S03 delivers: add bead from catalog (append), remove selected bead via toolbar, reset chain to defaults, tap-to-select in 3D (200ms/0.05 NDC threshold), golden wireframe highlight, deselect on empty-space click, drag beads with kinematic physics, 40-bead max enforcement. EditorCanvas layout with glass-morphism toolbar (Каталог/Удалить/Сброс). Global Zustand useDesignStore as single source of truth. Still missing: bead reorder (перетаскивание для смены порядка) — deferred. |
-| R006 | integration | active | M001/S04 | M001/S06 | partial — S04 delivers: encodeDesign/decodeDesign pure functions (JSON → LZ-String → base64url) with versioned wire format, 13 serialization tests passing. Template model in SQLite via Prisma, 8 seeded templates with Russian names. GET /api/templates returns approved templates, GET /api/templates/[code] returns single or 404. /design/[code] page deserializes URL code, loads beads into editor via useDesignStore.loadFromCatalogIds. /editor page clears store for blank editor. "Поделиться" button copies share URL to clipboard. Home page template gallery with horizontal-scroll cards, colored-dot previews, "Начать с нуля" card. Graceful error state for invalid codes. Still missing: user-submitted design approval flow (S06), admin template CRUD (S06). |
+| R006 | integration | validated | M001/S04 | M001/S06 | S04 UAT + S06 UAT: S04 delivers encodeDesign/decodeDesign pure functions (13 serialization tests), 8 seeded templates, GET /api/templates (approved only), /design/[code] page, share button, home page template gallery. S06 completes: user-submitted design approval via "Сделать шаблоном" button on admin orders page, admin template CRUD at /api/admin/templates (create, approve/unapprove, delete). Full flow verified. |
 | R007 | integration | validated | M001/S05 | M001/S06 | S05 UAT: Order model in Prisma schema with migration (id, designCode, designState, status, beadCount, createdAt). POST /api/orders creates order with 201, validates designCode+beadCount (400 on missing), try/catch with console.error (500 on DB errors). GET /api/orders returns all orders ordered by createdAt desc. generateTelegramLink(designCode, beadCount) pure function produces `https://t.me/VoronovAndrey?text=...` with encodeURIComponent for Russian text. 7 unit tests pass (URL format, encoding, edge cases). "Заказать" CTA button in EditorToolbar — full-width green (#10b981) button, disabled when beads.length===0, loading state "Отправка..." with disabled during fetch, error feedback for 3s on failure. Full browser flow verified: add 3+ beads → click "Заказать" → GET /api/orders returns new order with status "new" and correct designCode/beadCount → Telegram opens with pre-filled Russian message containing greeting, design code, and bead count. Mobile viewport (390×844) toolbar layout works without overflow. 64 tests pass, TypeScript clean, production build succeeds. |
-| R008 | admin/support | active | M001/S06 | none | unmapped |
+| R008 | admin/support | validated | M001/S06 | none | S06 UAT: Password-protected admin panel at /admin via proxy.ts cookie guard (admin_token httpOnly cookie). Login page at /admin/login validates ADMIN_PASSWORD env var. Admin layout with sidebar navigation (Шаблоны/Заказы/Бусины) and logout. Template management: list all (approved + unapproved), create (name + designCode), approve/unapprove toggle, delete with confirmation. Order management: list all orders, status badges (new/processing/completed), status dropdown change, promote-to-template ("Сделать шаблоном") creating approved template from order's designCode. Bead catalog viewer: 100 beads from CATALOG_BEADS static array with material filter dropdown and name search. Full browser flow verified: login redirect, wrong password error, correct password → cookie set → templates page, all 3 pages functional, logout clears session, unauthenticated access → redirect to login. 64 tests pass, zero TS errors, production build succeeds with all 16 routes. |
 | R009 | core-capability | validated | M001/S03 | M001/S04 | S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top. |
 | R010 | constraint | active | M001/S07 | none | unmapped |
 | R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay. S02 adds PBR materials per BeadType (wood/silicone/knit/plastic with distinct roughness/metalness/bump), procedural bump textures for wood and knit, adaptive rendering with PerformanceMonitor. S03 adds glass-morphism toolbar (bg-white/70 backdrop-blur-md), smooth slide animations (translate-y transition), golden wireframe highlight on selection, inline SVG icons, Russian UI copy, scale-on-press tactile feedback (active:scale-95), PacifierClip metallic silver 3D mesh. Still needs: real PNG textures from user photos (S06), production post-processing (S07). |
@@ -221,7 +221,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 5
-- Mapped to slices: 5
-- Validated: 6 (R001, R002, R003, R004, R007, R009)
+- Active requirements: 3
+- Mapped to slices: 3
+- Validated: 8 (R001, R002, R003, R004, R006, R007, R008, R009)
 - Unmapped active requirements: 0
