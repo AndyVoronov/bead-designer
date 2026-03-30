@@ -111,7 +111,7 @@
   - Verify: Browser: catalog opens with animation, filter chips work (tapping "Дерево" shows only wood beads), grid scrolls smoothly on mobile viewport, tapping a bead card adds it to the 3D chain, catalog panel touch events don't interfere with 3D canvas below, `npm run build` passes.
   - Done when: Catalog panel renders 80+ beads in a filterable scrollable grid, material filters work, tapping a bead adds it to the chain, touch scroll is isolated from 3D canvas
 
-- [ ] **T05: Add bead selection in 3D, pacifier clip, and wire remove-selected** `est:1h`
+- [x] **T05: Add bead selection in 3D, pacifier clip, and wire remove-selected** `est:1h`
   - Why: Closes the loop on R005 (remove beads) and R009 (pacifier holder product type). Users need to select a bead in 3D to remove it, and the chain needs a pacifier clip visual instead of a plain sphere anchor.
   - Files: `src/components/scene/BeadRigidBody.tsx`, `src/components/scene/BeadChain.tsx`, `src/components/editor/PacifierClip.tsx`, `src/components/scene/DragControls.tsx`, `src/components/editor/EditorToolbar.tsx`
   - Do:

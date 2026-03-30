@@ -26,6 +26,7 @@ import {
 import { BeadChain } from "./BeadChain";
 import AdaptiveRenderer from "./AdaptiveRenderer";
 import { useDragStore } from "@/lib/dragStore";
+import { useDesignStore } from "@/stores/useDesignStore";
 import type { BeadState } from "@/types/bead";
 
 export interface SceneProps {
@@ -66,6 +67,7 @@ export default function Scene({ beads, selectedBeadId }: SceneProps) {
     <Canvas
       camera={{ position: [0, 1, 7], fov: 50 }}
       shadows
+      onPointerMissed={() => useDesignStore.getState().selectBead(null)}
       style={{ background: "linear-gradient(180deg, #f0f4f8 0%, #d9e2ec 100%)" }}
     >
       {/* Soft gradient background */}

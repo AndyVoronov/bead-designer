@@ -5,6 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import type { RapierRigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { useDragStore } from "@/lib/dragStore";
+import { useDesignStore } from "@/stores/useDesignStore";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,12 +20,22 @@ interface DragState {
   prevTime: number;
   /** Mouse position (NDC) at pointer-down — used as reference offset. */
   pointerStart: { x: number; y: number };
+  /** Timestamp (ms) when the pointer was pressed down. */
+  pointerDownTime: number;
+  /** The bead ID associated with this drag interaction. */
+  beadId: string | null;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 /** Maximum number of position history entries kept for velocity smoothing. */
 const HISTORY_SIZE = 3;
+
+/** Maximum pointer-down duration (ms) to count as a tap. */
+const TAP_MAX_DURATION = 200;
+
+/** Maximum NDC distance the pointer can travel to count as a tap. */
+const TAP_MAX_DISTANCE = 0.05;
 
 // ── Reusable objects (avoid GC in useFrame) ──────────────────────────────────
 
@@ -42,12 +53,21 @@ const _intersection = new THREE.Vector3();
  * 3. `onPointerUp` → compute velocity from recent deltas, apply `setLinvel`,
  *    switch back to `dynamic`
  *
- * @param bodyRef — React ref holding the RapierRigidBody (typically from
- *                  `useForwardedRef` or `useRef`)
+ * **Tap detection (T05):**
+ * If the pointer is released within `TAP_MAX_DURATION` ms and hasn't moved
+ * more than `TAP_MAX_DISTANCE` in NDC space, it's treated as a tap (select)
+ * rather than a drag. In that case velocity is not applied and the bead is
+ * selected via `useDesignStore.selectBead`.
+ *
+ * @param bodyRef — React ref holding the RapierRigidBody
+ * @param beadId — Optional bead ID for tap-to-select integration
  * @returns Object with `onPointerDown`, `onPointerUp`, `onPointerOver`,
  *          `onPointerOut` handlers to spread onto a `<mesh>`
  */
-export function useDrag(bodyRef: React.RefObject<RapierRigidBody | null>) {
+export function useDrag(
+  bodyRef: React.RefObject<RapierRigidBody | null>,
+  beadId?: string,
+) {
   const { camera, pointer, gl } = useThree();
 
   // Mutable state that survives across frames without triggering re-renders
@@ -83,6 +103,8 @@ export function useDrag(bodyRef: React.RefObject<RapierRigidBody | null>) {
         prevPos: { x: pos.x, y: pos.y, z: pos.z },
         prevTime: now,
         pointerStart: { x: pointer.x, y: pointer.y },
+        pointerDownTime: now,
+        beadId: beadId ?? null,
       };
 
       // Reset history
@@ -92,43 +114,69 @@ export function useDrag(bodyRef: React.RefObject<RapierRigidBody | null>) {
       // Change cursor
       gl.domElement.style.cursor = "grabbing";
     },
-    [bodyRef, pointer, gl],
+    [bodyRef, pointer, gl, beadId],
   );
 
-  // ── Pointer Up: stop dragging, apply velocity ─────────────────────────
+  // ── Pointer Up: stop dragging, apply velocity (or select on tap) ──────
   const onPointerUp = useCallback(() => {
     const drag = dragRef.current;
     if (!drag) return;
 
     const body = drag.body;
-    const history = historyRef.current;
+    const now = performance.now();
+    const elapsed = now - drag.pointerDownTime;
+    const dx = pointer.x - drag.pointerStart.x;
+    const dy = pointer.y - drag.pointerStart.y;
+    const ndcDistance = Math.sqrt(dx * dx + dy * dy);
 
-    // Compute average velocity from the last few frames
-    if (history.length >= 2) {
-      const recent = history.slice(-HISTORY_SIZE);
-      const first = recent[0];
-      const last = recent[recent.length - 1];
-      const dt = (last.time - first.time) / 1000; // seconds
+    const isTap =
+      elapsed < TAP_MAX_DURATION && ndcDistance < TAP_MAX_DISTANCE;
 
-      if (dt > 0.001) {
-        const vx = (last.pos.x - first.pos.x) / dt;
-        const vy = (last.pos.y - first.pos.y) / dt;
-        const vz = (last.pos.z - first.pos.z) / dt;
-
-        // Clamp velocity to prevent crazy throws
-        const maxVel = 30;
-        const clamp = (v: number) => Math.max(-maxVel, Math.min(maxVel, v));
-
-        body.setLinvel({ x: clamp(vx), y: clamp(vy), z: clamp(vz) }, true);
+    if (isTap && drag.beadId) {
+      // Tap detected — select the bead (toggle selection)
+      const { selectedBeadId } = useDesignStore.getState();
+      if (selectedBeadId === drag.beadId) {
+        useDesignStore.getState().selectBead(null);
+      } else {
+        useDesignStore.getState().selectBead(drag.beadId);
       }
+
+      // Switch back to dynamic without velocity — it was a tap, not a throw
+      body.setBodyType({ type: "dynamic" } as never, true);
+      body.wakeUp();
+    } else {
+      // It was a drag — compute velocity and apply it
+      const history = historyRef.current;
+
+      if (history.length >= 2) {
+        const recent = history.slice(-HISTORY_SIZE);
+        const first = recent[0];
+        const last = recent[recent.length - 1];
+        const dt = (last.time - first.time) / 1000; // seconds
+
+        if (dt > 0.001) {
+          const vx = (last.pos.x - first.pos.x) / dt;
+          const vy = (last.pos.y - first.pos.y) / dt;
+          const vz = (last.pos.z - first.pos.z) / dt;
+
+          // Clamp velocity to prevent crazy throws
+          const maxVel = 30;
+          const clamp = (v: number) => Math.max(-maxVel, Math.min(maxVel, v));
+
+          body.setLinvel({ x: clamp(vx), y: clamp(vy), z: clamp(vz) }, true);
+        }
+      }
+
+      // Give a small angular velocity for natural spin feel
+      body.setAngvel({ x: 0.5, y: 0, z: 0.2 }, true);
+
+      // Switch back to dynamic
+      body.setBodyType({ type: "dynamic" } as never, true);
+      body.wakeUp();
+
+      // Deselect when finishing a drag (the user was moving beads, not selecting)
+      useDesignStore.getState().selectBead(null);
     }
-
-    // Give a small angular velocity for natural spin feel
-    body.setAngvel({ x: 0.5, y: 0, z: 0.2 }, true);
-
-    // Switch back to dynamic
-    body.setBodyType({ type: "dynamic" } as never, true);
-    body.wakeUp();
 
     dragRef.current = null;
     historyRef.current = [];
@@ -138,7 +186,7 @@ export function useDrag(bodyRef: React.RefObject<RapierRigidBody | null>) {
     useDragStore.getState().setDragging(false);
 
     gl.domElement.style.cursor = "auto";
-  }, [gl]);
+  }, [gl, pointer]);
 
   // ── Cursor handlers ───────────────────────────────────────────────────
   const onPointerOver = useCallback(() => {

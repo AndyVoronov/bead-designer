@@ -16,6 +16,10 @@ export interface BeadRigidBodyProps {
   /** Sphere geometry segment count (default: 24). Lower = fewer vertices, better perf. */
   segments?: number;
   position: [number, number, number];
+  /** Unique bead identifier — forwarded to useDrag for tap-to-select. */
+  beadId?: string;
+  /** Whether this bead is currently selected — renders golden wireframe glow. */
+  highlighted?: boolean;
 }
 
 /**
@@ -24,7 +28,19 @@ export interface BeadRigidBodyProps {
  * Supports pointer-drag via the useDrag hook (kinematic position pattern).
  */
 export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
-  ({ radius, color, type, damping = 2, segments = 24, position }, fwdRef) => {
+  (
+    {
+      radius,
+      color,
+      type,
+      damping = 2,
+      segments = 24,
+      position,
+      beadId,
+      highlighted = false,
+    },
+    fwdRef,
+  ) => {
     // Stable local ref for useDrag (reads .current in useFrame — needs RefObject,
     // not the polymorphic ForwardedRef which can be a callback).
     const bodyRef = useRef<RapierRigidBody>(null);
@@ -40,7 +56,7 @@ export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
     );
 
     const { onPointerDown, onPointerUp, onPointerOver, onPointerOut } =
-      useDrag(bodyRef);
+      useDrag(bodyRef, beadId);
 
     return (
       <RigidBody
@@ -52,6 +68,8 @@ export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
         ccd={false}
       >
         <BallCollider args={[radius]} />
+
+        {/* Main bead mesh */}
         <mesh
           castShadow
           onPointerDown={onPointerDown}
@@ -62,6 +80,21 @@ export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
           <sphereGeometry args={[radius, segments, segments]} />
           <BeadMaterial type={type} color={color} />
         </mesh>
+
+        {/* Selection highlight — golden wireframe glow */}
+        {highlighted && (
+          <mesh scale={[1.15, 1.15, 1.15]}>
+            <sphereGeometry args={[radius, segments, segments]} />
+            <meshStandardMaterial
+              color="#FFD700"
+              emissive="#FFD700"
+              emissiveIntensity={0.8}
+              wireframe
+              transparent
+              opacity={0.7}
+            />
+          </mesh>
+        )}
       </RigidBody>
     );
   }

@@ -6,6 +6,7 @@ import type { RapierRigidBody } from "@react-three/rapier";
 import type { BeadState } from "@/types/bead";
 import { BeadRigidBody } from "./BeadRigidBody";
 import { ThreadLine } from "./ThreadLine";
+import { PacifierClip } from "@/components/editor/PacifierClip";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export interface BeadChainProps {
   anchorPosition: [number, number, number];
   /** Thread colour (default: "#8B4513" — saddle brown). */
   threadColor?: string;
-  /** Currently selected bead ID for highlight rendering (T05). */
+  /** Currently selected bead ID for highlight rendering. */
   selectedBeadId?: string | null;
 }
 
@@ -101,13 +102,10 @@ export function BeadChain({
 
   return (
     <group>
-      {/* ── Fixed anchor ─────────────────────────────────────────────── */}
+      {/* ── Fixed anchor with pacifier clip ────────────────────────── */}
       <RigidBody ref={anchorRef} type="fixed" position={anchorPosition}>
         <BallCollider args={[ANCHOR_RADIUS]} />
-        <mesh>
-          <sphereGeometry args={[ANCHOR_RADIUS, 24, 24]} />
-          <meshStandardMaterial color="#444444" roughness={0.5} metalness={0.4} />
-        </mesh>
+        <PacifierClip />
       </RigidBody>
 
       {/* ── Dynamic beads ───────────────────────────────────────────── */}
@@ -120,6 +118,8 @@ export function BeadChain({
           type={bead.type}
           damping={2}
           position={beadPositions[i]}
+          beadId={bead.id}
+          highlighted={bead.id === selectedBeadId}
         />
       ))}
 
