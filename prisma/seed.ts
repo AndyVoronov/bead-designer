@@ -9,12 +9,13 @@
 
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { CATALOG_BEADS, getCatalogBead } from "../src/data/catalogBeads";
 import { catalogBeadToBeadState } from "../src/lib/catalogUtils";
 import { encodeDesign } from "../src/lib/serialization";
 
-const adapter = new PrismaLibSql({ url: process.env.DATABASE_URL! });
+const adapter = new PrismaPg(new Pool({ connectionString: process.env.DATABASE_URL! }));
 const prisma = new PrismaClient({ adapter });
 
 /**

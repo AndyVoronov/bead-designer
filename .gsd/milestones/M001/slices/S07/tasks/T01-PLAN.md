@@ -62,6 +62,13 @@ The current setup uses `@prisma/adapter-libsql` with `provider = "sqlite"` in sc
    ```
    Also create `.env.example` with the same template (both are in .gitignore — .env.example is explicitly allowed via `!.env.example`).
 
+## Observability Impact
+
+- **What changes:** The database adapter swaps from `@prisma/adapter-libsql` (SQLite) to `@prisma/adapter-pg` (PostgreSQL via pg.Pool). Standalone output mode is enabled in Next.js.
+- **Signals that change:** `prisma/schema.prisma` now references `postgresql` provider. `src/lib/prisma.ts` and `prisma/seed.ts` create a `pg.Pool` from `DATABASE_URL` instead of a LibSQL connection. Build output moves from `.next/` to `.next/standalone/` for deployment.
+- **How a future agent inspects this task:** Check `grep -r "adapter-libsql" src/ prisma/` — should return nothing. Verify `prisma/schema.prisma` has `provider = "postgresql"`. Check `npm run build` produces `.next/standalone/`. Check `package.json` has `@prisma/adapter-pg` and `pg` in dependencies.
+- **Failure visibility:** If DATABASE_URL is not a valid PostgreSQL connection string, `PrismaClient` instantiation will throw at startup. In tests (no DB connection), this is a non-issue since tests don't instantiate PrismaClient. In dev/prod, a clear connection error will appear in Next.js server logs.
+
 ## Must-Haves
 
 - [ ] `prisma/schema.prisma` has `provider = "postgresql"`

@@ -2,7 +2,7 @@
 // Learn more: https://pris.ly/d/prisma-schema
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 generator client {

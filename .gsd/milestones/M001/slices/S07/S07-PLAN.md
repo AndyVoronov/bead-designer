@@ -44,7 +44,7 @@
 
 ## Tasks
 
-- [ ] **T01: Migrate to PostgreSQL + standalone output** `est:30m`
+- [x] **T01: Migrate to PostgreSQL + standalone output** `est:30m`
   - Why: Приложение использует SQLite (libsql) для локальной разработки (D024), но production требует PostgreSQL (D004). Нужно сменить provider, адаптер, и добавить standalone output для оптимизированного деплоя.
   - Files: `prisma/schema.prisma`, `src/lib/prisma.ts`, `prisma/seed.ts`, `prisma.config.ts`, `next.config.ts`, `package.json`, `.env.production`
   - Do: Установить @prisma/adapter-pg + pg. Сменить provider на postgresql в schema.prisma. Заменить PrismaLibSql на PrismaPg с pg.Pool в prisma.ts и seed.ts. Удалить SQLite миграции. Добавить output: 'standalone' в next.config.ts. Создать .env.production шаблон. Обновить .gitignore.
