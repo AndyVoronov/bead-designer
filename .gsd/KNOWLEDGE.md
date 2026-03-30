@@ -2,6 +2,11 @@
 
 <!-- Append-only. Non-obvious rules, recurring gotchas, useful patterns. -->
 
+## Vitest on Windows NTFS Junctions (GSD Worktrees)
+
+- **Vite `/@fs/` protocol fails across junction boundaries**: `setupFiles` paths are resolved through the junction (`D:\...`) but Vite's internal `fs.allow` uses the real path (`C:\...`). Fix: use `fs.realpathSync(__dirname)` in `vitest.config.ts` and pass the resolved path to both `setupFiles` and `server.fs.allow`.
+- **React 19 state batching in tests**: Multiple `setState` calls inside a single `act()` are batched — `while` loops calling state-updating functions read stale state. Fix: use separate `act()` calls per state update.
+
 ## Next.js 16 + GSD Worktree
 
 - **Windows junction path bug**: `npm run dev` from the junction path (`D:\ProjectsOnCursor\ToyDesigner\.gsd\worktrees\M001`) causes Next.js to double-concatenate paths with the real path (`C:\Users\Andy\.gsd\projects\...`), producing ENOENT on `.next/dev/routes-manifest.json`. **Fix**: always start the dev server from the real path, or use `--port N` to force a specific port.

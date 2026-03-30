@@ -88,11 +88,27 @@ describe("useBeadChain", () => {
   it("removeLast() is a no-op when no beads remain", () => {
     const { result } = renderHook(() => useBeadChain());
 
-    // Remove all beads
+    // Remove all beads one at a time (React 19 batches state updates)
     act(() => {
-      while (result.current.beads.length > 0) {
-        result.current.removeLast();
-      }
+      result.current.removeLast();
+    });
+    act(() => {
+      result.current.removeLast();
+    });
+    act(() => {
+      result.current.removeLast();
+    });
+    act(() => {
+      result.current.removeLast();
+    });
+    act(() => {
+      result.current.removeLast();
+    });
+    act(() => {
+      result.current.removeLast();
+    });
+    act(() => {
+      result.current.removeLast();
     });
 
     expect(result.current.beads).toHaveLength(0);

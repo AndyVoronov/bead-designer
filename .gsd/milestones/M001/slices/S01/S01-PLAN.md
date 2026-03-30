@@ -59,7 +59,7 @@
   - Verify: `npm run build` exits 0; in browser, 7 beads hang from anchor under gravity and swing when disturbed
   - Done when: Chain of 7+ beads hangs realistically under gravity with rope joints, visible MeshLine thread connecting them
 
-- [ ] **T03: Add pointer drag, useBeadChain hook, and visual polish** `est:1.5h`
+- [x] **T03: Add pointer drag, useBeadChain hook, and visual polish** `est:1.5h`
   - Why: Completes R001 (interactive drag) and R011 (beautiful visuals). The Vercel kinematicPosition pattern lets users grab and throw beads. useBeadChain provides the state interface for downstream slices (S03 editor). Visual polish (Environment, ContactShadows, lighting) makes the demo emotionally engaging.
   - Files: `src/components/scene/DragControls.tsx`, `src/hooks/useBeadChain.ts`, `src/components/scene/BeadRigidBody.tsx`, `src/components/scene/Scene.tsx`, `src/app/page.tsx`, `src/hooks/__tests__/useBeadChain.test.ts`
   - Do: Implement DragControls as a hook/component: on `onPointerDown` on a BeadRigidBody mesh → call `setBodyType('kinematicPosition')` + `wakeUp()`, track pointer via useFrame with `setNextKinematicTranslation()`. On `onPointerUp`: compute velocity from last 2 frames delta, call `setLinvel()` + `setAngvel()`, switch back to `type='dynamic'`. Integrate into BeadRigidBody. Create `useBeadChain` hook: `beads[]` state (array of BeadState), `addBead()`, `removeBead(id)`, `reset()`. Each bead gets a unique BeadId. Write vitest test for the hook's state transitions. Enhance Scene: add drei `Environment preset="studio"`, `ContactShadows`, warm directional + ambient lighting, `<Stats>` for FPS monitoring. Wire useBeadChain into page.tsx with minimal demo buttons ("Add bead", "Remove last", "Reset"). Ensure `npm run build` passes.
