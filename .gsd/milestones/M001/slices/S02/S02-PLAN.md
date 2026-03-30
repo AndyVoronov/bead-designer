@@ -60,7 +60,7 @@
   - Verify: `npm run build` passes; browser shows Stats FPS counter; OrbitControls rotate when NOT dragging; drag bead → OrbitControls stop; mobile emulation viewport fills screen
   - Done when: mobile emulation works — viewport fills screen, no scroll interference, drag/orbit don't conflict, Stats shows stable FPS
 
-- [ ] **T02: Create type-specific PBR materials for beads** `est:30m`
+- [x] **T02: Create type-specific PBR materials for beads** `est:30m`
   - Why: R003 requires visually distinct materials for wood, silicone, knit, and plastic beads. Currently all beads use identical `roughness=0.3, metalness=0.1`. Each material type needs distinct PBR properties to look realistic even without PNG textures.
   - Files: `src/lib/beadMaterialConfig.ts`, `src/components/scene/BeadMaterial.tsx`, `src/components/scene/BeadRigidBody.tsx`, `src/components/scene/__tests__/beadMaterial.test.ts`
   - Do:

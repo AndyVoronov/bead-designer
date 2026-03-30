@@ -3,11 +3,14 @@
 import { forwardRef, useRef, useCallback } from "react";
 import { RigidBody, BallCollider } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
+import type { BeadType } from "@/types/bead";
 import { useDrag } from "./DragControls";
+import { BeadMaterial } from "./BeadMaterial";
 
 export interface BeadRigidBodyProps {
   radius: number;
   color: string;
+  type: BeadType;
   /** Linear and angular damping (default: 2 — stabilizes chain swing). */
   damping?: number;
   position: [number, number, number];
@@ -19,7 +22,7 @@ export interface BeadRigidBodyProps {
  * Supports pointer-drag via the useDrag hook (kinematic position pattern).
  */
 export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
-  ({ radius, color, damping = 2, position }, fwdRef) => {
+  ({ radius, color, type, damping = 2, position }, fwdRef) => {
     // Stable local ref for useDrag (reads .current in useFrame — needs RefObject,
     // not the polymorphic ForwardedRef which can be a callback).
     const bodyRef = useRef<RapierRigidBody>(null);
@@ -55,11 +58,7 @@ export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
           onPointerOut={onPointerOut}
         >
           <sphereGeometry args={[radius, 32, 32]} />
-          <meshStandardMaterial
-            color={color}
-            roughness={0.3}
-            metalness={0.1}
-          />
+          <BeadMaterial type={type} color={color} />
         </mesh>
       </RigidBody>
     );

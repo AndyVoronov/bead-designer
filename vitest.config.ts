@@ -9,6 +9,11 @@ const realRoot = fs.realpathSync(path.resolve(__dirname));
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(realRoot, "src"),
+    },
+  },
   server: {
     fs: {
       allow: [realRoot],

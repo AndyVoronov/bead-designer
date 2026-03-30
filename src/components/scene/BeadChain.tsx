@@ -114,6 +114,7 @@ export function BeadChain({
           ref={beadRefs[i]}
           radius={bead.radius}
           color={bead.color}
+          type={bead.type}
           damping={2}
           position={beadPositions[i]}
         />

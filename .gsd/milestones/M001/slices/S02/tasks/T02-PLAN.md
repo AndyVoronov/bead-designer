@@ -61,6 +61,13 @@ No PNG textures are available yet (they come later from user/admin uploads via S
 - `npm run build` — zero errors
 - Browser: 4 bead types are visually distinct — wood looks matte, silicone looks glossy, knit looks rough/bumpy, plastic looks slightly shiny
 
+## Observability Impact
+
+- **New signals**: Material config is a pure TypeScript map — no runtime signals added. BeadMaterial component applies PBR properties declaratively via R3F's `<meshStandardMaterial>`.
+- **Inspection surfaces**: In the browser, right-click a bead → "Inspect Element" → Three.js panel shows `material.roughness`, `material.metalness`, `material.envMapIntensity`, `material.bumpMap` values per bead type. The `Stats` overlay (from T01) monitors FPS impact of the new bump textures.
+- **Failure visibility**: If all beads look identical, the `BeadMaterialConfig` map may not be loading correctly — check browser console for import errors. If bump textures cause visible artifacts, the procedural canvas generation in `createProceduralBumpTexture()` may be producing incorrect data — inspect via `texture.image` in Three.js debugger.
+- **Future agent inspection**: Read `src/lib/beadMaterialConfig.ts` to verify material differentiation contract. Run `npx vitest run src/components/scene/__tests__/beadMaterial.test.ts` to validate config invariants (all roughness in [0,1], knit roughest, silicone smoothest).
+
 ## Inputs
 
 - `src/types/bead.ts` — BeadType union ("wood" | "silicone" | "knit" | "plastic")
