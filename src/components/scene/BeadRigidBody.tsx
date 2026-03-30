@@ -1,8 +1,9 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useRef, useCallback } from "react";
 import { RigidBody, BallCollider } from "@react-three/rapier";
 import type { RapierRigidBody } from "@react-three/rapier";
+import { useDrag } from "./DragControls";
 
 export interface BeadRigidBodyProps {
   radius: number;
@@ -15,12 +16,30 @@ export interface BeadRigidBodyProps {
 /**
  * A single physics-driven bead: RigidBody + BallCollider + visual sphere.
  * Uses forwardRef so the parent can collect the RapierRigidBody ref for joints.
+ * Supports pointer-drag via the useDrag hook (kinematic position pattern).
  */
 export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
-  ({ radius, color, damping = 2, position }, ref) => {
+  ({ radius, color, damping = 2, position }, fwdRef) => {
+    // Stable local ref for useDrag (reads .current in useFrame — needs RefObject,
+    // not the polymorphic ForwardedRef which can be a callback).
+    const bodyRef = useRef<RapierRigidBody>(null);
+
+    // Merge: assign to local ref AND forwarded ref (object or callback).
+    const setRefs = useCallback(
+      (node: RapierRigidBody | null) => {
+        bodyRef.current = node;
+        if (typeof fwdRef === "function") fwdRef(node);
+        else if (fwdRef) fwdRef.current = node;
+      },
+      [fwdRef],
+    );
+
+    const { onPointerDown, onPointerUp, onPointerOver, onPointerOut } =
+      useDrag(bodyRef);
+
     return (
       <RigidBody
-        ref={ref}
+        ref={setRefs}
         colliders={false}
         angularDamping={damping}
         linearDamping={damping}
@@ -28,7 +47,13 @@ export const BeadRigidBody = forwardRef<RapierRigidBody, BeadRigidBodyProps>(
         ccd={false}
       >
         <BallCollider args={[radius]} />
-        <mesh castShadow>
+        <mesh
+          castShadow
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUp}
+          onPointerOver={onPointerOver}
+          onPointerOut={onPointerOut}
+        >
           <sphereGeometry args={[radius, 32, 32]} />
           <meshStandardMaterial
             color={color}

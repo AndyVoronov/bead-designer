@@ -7,47 +7,44 @@ import { OrbitControls, Environment, ContactShadows, Stats } from "@react-three/
 import { BeadChain } from "./BeadChain";
 import type { BeadState } from "@/types/bead";
 
-/** 7 demo beads with alternating wood / silicone colours. */
-const defaultBeads: BeadState[] = [
-  { id: "bead-1", type: "wood", radius: 0.2, color: "#D4A574" },
-  { id: "bead-2", type: "silicone", radius: 0.18, color: "#FF6B9D" },
-  { id: "bead-3", type: "wood", radius: 0.22, color: "#C4956A" },
-  { id: "bead-4", type: "plastic", radius: 0.19, color: "#6EC1E4" },
-  { id: "bead-5", type: "wood", radius: 0.21, color: "#B8860B" },
-  { id: "bead-6", type: "silicone", radius: 0.17, color: "#E8A0BF" },
-  { id: "bead-7", type: "wood", radius: 0.2, color: "#DEB887" },
-];
+export interface SceneProps {
+  /** Array of bead descriptors — drives chain composition. */
+  beads: BeadState[];
+}
 
 /**
  * Root 3D scene: Canvas → Physics → BeadChain → ThreadLine.
  * SSR-safe (loaded via SceneLoader with dynamic ssr:false).
  */
-export default function Scene() {
+export default function Scene({ beads }: SceneProps) {
   return (
     <Canvas
       camera={{ position: [0, 1, 7], fov: 50 }}
       shadows
-      style={{ background: "#87ceeb" }}
+      style={{ background: "linear-gradient(180deg, #f0f4f8 0%, #d9e2ec 100%)" }}
     >
-      <color attach="background" args={["#87ceeb"]} />
-      <ambientLight intensity={0.6} />
+      {/* Soft gradient background */}
+      <color attach="background" args={["#eef2f6"]} />
+      <fog attach="fog" args={["#eef2f6", 12, 22]} />
+
+      {/* Lighting: soft studio feel */}
+      <ambientLight intensity={0.3} />
       <directionalLight
-        position={[5, 10, 5]}
-        intensity={1.2}
+        position={[5, 8, 5]}
+        intensity={1}
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
       />
+      {/* Fill light from opposite side for softer shadows */}
+      <directionalLight position={[-3, 5, -3]} intensity={0.3} />
 
       <Suspense fallback={null}>
-        <Environment preset="city" />
+        <Environment preset="studio" />
 
         {/* Physics world: gravity tuned for snappy feel (Vercel pattern) */}
         <Physics gravity={[0, -40, 0]}>
-          <BeadChain
-            beads={defaultBeads}
-            anchorPosition={[0, 3, 0]}
-          />
+          <BeadChain beads={beads} anchorPosition={[0, 3, 0]} />
         </Physics>
 
         {/* Soft ground shadow */}
