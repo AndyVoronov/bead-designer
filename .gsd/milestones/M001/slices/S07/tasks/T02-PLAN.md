@@ -88,6 +88,13 @@ All configuration is parameterized via environment variables with sensible defau
 - `grep -q "standalone" ecosystem.config.cjs` — references standalone output
 - `grep -q "prisma db push" deploy.sh` — schema application step present
 
+## Observability Impact
+
+- **New inspection surfaces**: `nginx.conf` makes PM2-managed Next.js reachable via HTTPS; `ecosystem.config.cjs` exposes structured PM2 logs at `~/.pm2/logs/bead-designer-{out,error}.log`; `deploy.sh` echoes each step for audit trail.
+- **Failure visibility**: Deploy script fails fast on any command (`set -euo pipefail`); Nginx returns 502 if Next.js is down; PM2 auto-restarts crashed app. `nginx -t` validates config before reload.
+- **No runtime signals changed** — this task is purely static configuration files. Signals activate only when deploy.sh is executed (T03).
+- **How a future agent inspects**: `bash -n deploy.sh` for syntax; `bash -n scripts/setup-vps.sh` for provisioning script; `grep` checks for key directives.
+
 ## Inputs
 
 - `next.config.ts` — standalone output config (from T01)

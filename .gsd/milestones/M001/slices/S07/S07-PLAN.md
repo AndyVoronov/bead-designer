@@ -50,7 +50,7 @@
   - Do: Установить @prisma/adapter-pg + pg. Сменить provider на postgresql в schema.prisma. Заменить PrismaLibSql на PrismaPg с pg.Pool в prisma.ts и seed.ts. Удалить SQLite миграции. Добавить output: 'standalone' в next.config.ts. Создать .env.production шаблон. Обновить .gitignore.
   - Verify: `npx tsc --noEmit` (0 errors), `npx vitest run` (64 tests pass)
   - Done when: Код компилируется, тесты проходят, schema provider = postgresql, standalone output включён, .env.production существует
-- [ ] **T02: Create deployment configuration files** `est:45m`
+- [x] **T02: Create deployment configuration files** `est:45m`
   - Why: Для деплоя на VPS нужны конфиги Nginx (reverse proxy + SSL), PM2 (автозапуск), скрипт деплоя и скрипт первоначальной настройки VPS. Все параметры (домен, пути) должны быть настраиваемыми.
   - Files: `nginx.conf`, `ecosystem.config.cjs`, `deploy.sh`, `scripts/setup-vps.sh`, `.env.production`
   - Do: Создать nginx.conf с reverse proxy на localhost:3000, SSL через Let's Encrypt, gzip, X-Accel-Buffering: no. Создать ecosystem.config.cjs для PM2 (next start, автозапуск, логи). Создать deploy.sh (build → rsync → remote prisma db push + seed + pm2 restart). Создать scripts/setup-vps.sh (установка Node.js 20, PostgreSQL, Nginx, certbot, PM2, создание БД и юзера). Все параметры через переменные окружения с дефолтами.
