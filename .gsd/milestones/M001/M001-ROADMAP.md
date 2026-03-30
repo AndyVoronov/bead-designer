@@ -62,7 +62,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Шаблоны + шеринг** `risk:medium` `depends:[S03]`
   > After this: Шаблоны листаются в каталоге и загружаются в редактор. Каждое изделие имеет уникальную ссылку — по ней восстанавливается точная копия дизайна.
 
-- [ ] **S05: Заказ + Telegram** `risk:medium` `depends:[S04]`
+- [x] **S05: Заказ + Telegram** `risk:medium` `depends:[S04]`
   > After this: Кнопка «Заказать» сохраняет заказ в БД и открывает Telegram с менеджером с предзаполненным сообщением и кодом изделия.
 
 - [ ] **S06: Админка** `risk:low` `depends:[S04,S05]`

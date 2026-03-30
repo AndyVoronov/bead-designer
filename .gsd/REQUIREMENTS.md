@@ -26,17 +26,6 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: partial — S04 delivers: encodeDesign/decodeDesign pure functions (JSON → LZ-String → base64url) with versioned wire format, 13 serialization tests passing. Template model in SQLite via Prisma, 8 seeded templates with Russian names. GET /api/templates returns approved templates, GET /api/templates/[code] returns single or 404. /design/[code] page deserializes URL code, loads beads into editor via useDesignStore.loadFromCatalogIds. /editor page clears store for blank editor. "Поделиться" button copies share URL to clipboard. Home page template gallery with horizontal-scroll cards, colored-dot previews, "Начать с нуля" card. Graceful error state for invalid codes. Still missing: user-submitted design approval flow (S06), admin template CRUD (S06).
 - Notes: Сериализация массива бусин в компактный формат. Хранение в БД, генерация короткого кода. URL: /design/{code}.
 
-### R007 — Клиент нажимает «Заказать» → заказ сохраняется в базу данных → открывается Telegram с менеджером (t.me/VoronovAndrey) с предзаполненным сообщением, содержащим код изделия. Клиент не заполняет никаких полей.
-- Class: integration
-- Status: active
-- Description: Клиент нажимает «Заказать» → заказ сохраняется в базу данных → открывается Telegram с менеджером (t.me/VoronovAndrey) с предзаполненным сообщением, содержащим код изделия. Клиент не заполняет никаких полей.
-- Why it matters: Конверсия. Минимальное трение: один тап → заказ → диалог.
-- Source: user
-- Primary owning slice: M001/S05
-- Supporting slices: M001/S06
-- Validation: unmapped
-- Notes: Telegram deep link: https://t.me/VoronovAndrey?text=encoded_text. Заказ в БД содержит код изделия, таймстемп, статус.
-
 ### R008 — Веб-панель для администратора: управление шаблонами (CRUD), просмотр заказов, подтверждение пользовательских дизайнов для добавления в каталог, управление бусинами. Доступ по простому паролю.
 - Class: admin/support
 - Status: active
@@ -115,6 +104,17 @@ This file is the explicit capability and coverage contract for the project.
 - Supporting slices: M001/S04
 - Validation: S03 UAT: 100 catalog beads in static array (25 per material: wood, silicone, knit, plastic) with Russian names, shapes (sphere/disc/star/heart/cylinder), sizes, hex colors. Mobile bottom-sheet BeadCatalogPanel with 5 material filter chips (Все/Дерево/Силикон/Вязаное/Пластик). 4-column scrollable grid with touch isolation (stopPropagation + touch-action: pan-y). Tap bead card → addBead() → 3D chain grows. Catalog stays open for batch-adding. Build + 44 tests pass.
 - Notes: Currently static array — S06 will make dynamic (API-backed). PNG textures not yet loaded — uses hex colors. Prisma schema written (no migrations yet, S04 activates DB).
+
+### R007 — Клиент нажимает «Заказать» → заказ сохраняется в базу данных → открывается Telegram с менеджером (t.me/VoronovAndrey) с предзаполненным сообщением, содержащим код изделия. Клиент не заполняет никаких полей.
+- Class: integration
+- Status: validated
+- Description: Клиент нажимает «Заказать» → заказ сохраняется в базу данных → открывается Telegram с менеджером (t.me/VoronovAndrey) с предзаполненным сообщением, содержащим код изделия. Клиент не заполняет никаких полей.
+- Why it matters: Конверсия. Минимальное трение: один тап → заказ → диалог.
+- Source: user
+- Primary owning slice: M001/S05
+- Supporting slices: M001/S06
+- Validation: S05 UAT: Order model in Prisma schema with migration (id, designCode, designState, status, beadCount, createdAt). POST /api/orders creates order with 201, validates designCode+beadCount (400 on missing), try/catch with console.error (500 on DB errors). GET /api/orders returns all orders ordered by createdAt desc. generateTelegramLink(designCode, beadCount) pure function produces `https://t.me/VoronovAndrey?text=...` with encodeURIComponent for Russian text. 7 unit tests pass (URL format, encoding, edge cases). "Заказать" CTA button in EditorToolbar — full-width green (#10b981) button, disabled when beads.length===0, loading state "Отправка..." with disabled during fetch, error feedback for 3s on failure. Full browser flow verified: add 3+ beads → click "Заказать" → GET /api/orders returns new order with status "new" and correct designCode/beadCount → Telegram opens with pre-filled Russian message containing greeting, design code, and bead count. Mobile viewport (390×844) toolbar layout works without overflow. 64 tests pass, TypeScript clean, production build succeeds.
+- Notes: Orders are anonymous (no PII). designState stored as String (JSON.stringify) for SQLite compatibility. Double-submit protection via isOrdering disabled state. Telegram opens in new tab via window.open.
 
 ### R009 — Первый тип изделия — держатель для соски. Включает зажим-клипсу на одном конце и нить с бусинами. Определяет структуру изделия и UI для выбора/конфигурации этого типа.
 - Class: core-capability
@@ -207,7 +207,7 @@ This file is the explicit capability and coverage contract for the project.
 | R004 | core-capability | validated | M001/S03 | M001/S04 | S03 UAT: 100 catalog beads in static array (25 per material: wood, silicone, knit, plastic) with Russian names, shapes (sphere/disc/star/heart/cylinder), sizes, hex colors. Mobile bottom-sheet BeadCatalogPanel with 5 material filter chips (Все/Дерево/Силикон/Вязаное/Пластик). 4-column scrollable grid with touch isolation (stopPropagation + touch-action: pan-y). Tap bead card → addBead() → 3D chain grows. Catalog stays open for batch-adding. Build + 44 tests pass. |
 | R005 | primary-user-loop | active | M001/S03 | M001/S04 | partial — S03 delivers: add bead from catalog (append), remove selected bead via toolbar, reset chain to defaults, tap-to-select in 3D (200ms/0.05 NDC threshold), golden wireframe highlight, deselect on empty-space click, drag beads with kinematic physics, 40-bead max enforcement. EditorCanvas layout with glass-morphism toolbar (Каталог/Удалить/Сброс). Global Zustand useDesignStore as single source of truth. Still missing: bead reorder (перетаскивание для смены порядка) — deferred. |
 | R006 | integration | active | M001/S04 | M001/S06 | partial — S04 delivers: encodeDesign/decodeDesign pure functions (JSON → LZ-String → base64url) with versioned wire format, 13 serialization tests passing. Template model in SQLite via Prisma, 8 seeded templates with Russian names. GET /api/templates returns approved templates, GET /api/templates/[code] returns single or 404. /design/[code] page deserializes URL code, loads beads into editor via useDesignStore.loadFromCatalogIds. /editor page clears store for blank editor. "Поделиться" button copies share URL to clipboard. Home page template gallery with horizontal-scroll cards, colored-dot previews, "Начать с нуля" card. Graceful error state for invalid codes. Still missing: user-submitted design approval flow (S06), admin template CRUD (S06). |
-| R007 | integration | active | M001/S05 | M001/S06 | unmapped |
+| R007 | integration | validated | M001/S05 | M001/S06 | S05 UAT: Order model in Prisma schema with migration (id, designCode, designState, status, beadCount, createdAt). POST /api/orders creates order with 201, validates designCode+beadCount (400 on missing), try/catch with console.error (500 on DB errors). GET /api/orders returns all orders ordered by createdAt desc. generateTelegramLink(designCode, beadCount) pure function produces `https://t.me/VoronovAndrey?text=...` with encodeURIComponent for Russian text. 7 unit tests pass (URL format, encoding, edge cases). "Заказать" CTA button in EditorToolbar — full-width green (#10b981) button, disabled when beads.length===0, loading state "Отправка..." with disabled during fetch, error feedback for 3s on failure. Full browser flow verified: add 3+ beads → click "Заказать" → GET /api/orders returns new order with status "new" and correct designCode/beadCount → Telegram opens with pre-filled Russian message containing greeting, design code, and bead count. Mobile viewport (390×844) toolbar layout works without overflow. 64 tests pass, TypeScript clean, production build succeeds. |
 | R008 | admin/support | active | M001/S06 | none | unmapped |
 | R009 | core-capability | validated | M001/S03 | M001/S04 | S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top. |
 | R010 | constraint | active | M001/S07 | none | unmapped |
@@ -221,7 +221,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 6
-- Mapped to slices: 6
-- Validated: 5 (R001, R002, R003, R004, R009)
+- Active requirements: 5
+- Mapped to slices: 5
+- Validated: 6 (R001, R002, R003, R004, R007, R009)
 - Unmapped active requirements: 0

@@ -63,3 +63,7 @@
 ## lz-string URL Encoding in Next.js Path Segments
 
 - **`+` in lz-string output gets encoded as `%2B`**: lz-string's `compressToEncodedURIComponent` uses `+` as a valid output character. When this output is placed in a URL path segment, browsers encode `+` to `%2B`. Next.js does NOT decode `%2B` back to `+` in dynamic route `params`, so the client receives literal `%2B` instead of `+`. **Fix**: call `decodeURIComponent(code)` in `decodeDesign()` before passing to `LZString.decompressFromEncodedURIComponent()`. This is safe because `decodeURIComponent` is a no-op for strings without encoded characters.
+
+## Turbopack + Prisma Generate Cache
+
+- **`.next` cache goes stale after `prisma generate`**: Turbopack caches Prisma client types. After running `prisma generate` (e.g., after adding a new model), the `.next` cache may still reference old types, causing TypeScript errors or runtime type mismatches. **Fix**: delete the `.next` folder and restart the dev server after any Prisma schema change that triggers `prisma generate`.
