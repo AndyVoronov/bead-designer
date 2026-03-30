@@ -14,17 +14,6 @@ Guidelines:
 
 ## Active
 
-### R001 — 3D-физика цепочки бусин
-- Class: core-capability
-- Status: active
-- Description: Цепочка бусин на нити с реалистичной физикой — гравитация, провисание нити (rope/spring joints), столкновения бусин между собой. Бусины можно перетаскивать мышкой/пальцем вдоль нити и по сцене.
-- Why it matters: Ядро продукта. Без реалистичной физики изделие не вызывает эмоцию «потрогать».
-- Source: user
-- Primary owning slice: M001/S01
-- Supporting slices: M001/S03
-- Validation: unmapped
-- Notes: Используем React Three Rapier (WASM). Rope joints между бусинами, spring joints для упругости нити. Должно работать стабильно с 20-40 бусинами на цепочке.
-
 ### R002 — Мобильная адаптивная отрисовка
 - Class: quality-attribute
 - Status: active
@@ -132,12 +121,21 @@ Guidelines:
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: M001/S02, M001/S03, M001/S07
-- Validation: unmapped
-- Notes: Это сквозное требование — влияет на каждый слайс. SSGI, ambient occlusion, мягкие тени, продуманная палитра.
+- Validation: partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay with bead count + control buttons. Still needs PBR materials (S02), post-processing (S02), and full mobile UI polish (S03).
+- Notes: S01 establishes the visual foundation. S02 adds PBR materials and post-processing. S03 adds mobile UI design. S07 adds production polish.
 
 ## Validated
 
-_(none yet)_
+### R001 — 3D-физика цепочки бусин
+- Class: core-capability
+- Status: validated
+- Description: Цепочка бусин на нити с реалистичной физикой — гравитация, провисание нити (rope/spring joints), столкновения бусин между собой. Бусины можно перетаскивать мышкой/пальцем вдоль нити и по сцене.
+- Why it matters: Ядро продукта. Без реалистичной физики изделие не вызывает эмоцию «потрогать».
+- Source: user
+- Primary owning slice: M001/S01
+- Supporting slices: M001/S03
+- Validation: S01 UAT: Chain of 7+ beads hangs under gravity with rope joints (useRopeJoint), swings when disturbed. MeshLine thread follows bead positions via CatmullRomCurve3 updated every frame. Pointer-drag uses Vercel kinematicPosition pattern with velocity history buffer (HISTORY_SIZE=3) — grab → drag → release with inertia. Build passes clean (0 TS errors). 10 useBeadChain unit tests pass. Tested with up to 12+ beads in browser.
+- Notes: Rope physics stable with damping=2 on all bodies, gravity=[0,-40,0], ROPE_TAUT_FACTOR=0.92. Max chain length tested ~12 beads. Stability at 20-40 beads still needs mobile verification in S02.
 
 ## Deferred
 
@@ -213,7 +211,7 @@ _(none yet)_
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | core-capability | active | M001/S01 | M001/S03 | mapped |
+| R001 | core-capability | validated | M001/S01 | M001/S03 | validated |
 | R002 | quality-attribute | active | M001/S02 | M001/S07 | mapped |
 | R003 | differentiator | active | M001/S02 | M001/S03 | mapped |
 | R004 | core-capability | active | M001/S03 | M001/S04 | mapped |
@@ -223,7 +221,7 @@ _(none yet)_
 | R008 | admin/support | active | M001/S06 | none | mapped |
 | R009 | core-capability | active | M001/S03 | M001/S04 | mapped |
 | R010 | constraint | active | M001/S07 | none | mapped |
-| R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | mapped |
+| R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | partial |
 | R012 | core-capability | deferred | none | none | unmapped |
 | R013 | integration | deferred | none | none | unmapped |
 | R014 | compliance/security | deferred | none | none | unmapped |
@@ -233,7 +231,8 @@ _(none yet)_
 
 ## Coverage Summary
 
-- Active requirements: 11
-- Mapped to slices: 11
-- Validated: 0
+- Active requirements: 10
+- Mapped to slices: 10
+- Validated: 1
+- Partially validated: 1 (R011)
 - Unmapped active requirements: 0

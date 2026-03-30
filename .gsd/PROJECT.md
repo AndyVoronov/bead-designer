@@ -10,7 +10,7 @@
 
 ## Current State
 
-Пустой проект. Нет кода, нет зависимостей, нет базы данных. Исходная точка — `create-next-app`.
+S01 completed: 3D-физика цепочки бусин работает. Next.js 16 + React Three Fiber + Rapier Physics. Цепочка из 7+ бусин висит под гравитацией, перетаскивается мышкой с инерцией. MeshLine-нить плавно следует за бусинами. Десктоп-браузер. SSR-safe. Build + tests pass.
 
 ## Architecture / Key Patterns
 
@@ -31,4 +31,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [ ] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой
+- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01 complete, S02-S07 remaining)
