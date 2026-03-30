@@ -48,6 +48,13 @@ Create pure-function serialization that round-trips an array of `catalogBeadId` 
 - [ ] `clearDesign()` sets beads to empty array
 - [ ] All tests pass (existing + new)
 
+## Observability Impact
+
+- **Runtime signals:** `encodeDesign` and `decodeDesign` are pure functions — no runtime signals emitted. Validation failures are silent (return `null`) by design; callers (T03 share page) will surface errors to the user.
+- **Inspection surfaces:** `encodeDesign`/`decodeDesign` can be called in browser console for ad-hoc testing. Store actions `loadFromCatalogIds`/`clearDesign` are inspectable via `useDesignStore.getState()` in DevTools.
+- **Failure visibility:** `decodeDesign` returns `null` for malformed codes (callers handle this). Invalid catalog IDs in `loadFromCatalogIds` are silently skipped (non-fatal). No structured logging added — pure logic layer.
+- **No changes to:** monitoring, error tracking, or API observability.
+
 ## Verification
 
 - `npx vitest run src/lib/__tests__/serialization.test.ts` — all serialization tests pass

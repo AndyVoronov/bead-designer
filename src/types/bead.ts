@@ -30,3 +30,10 @@ export interface ChainState {
   beads: BeadState[];
   config: ChainConfig;
 }
+
+/** Wire format for design serialization (JSON → LZ-String → base64url). */
+export interface SerializableDesign {
+  v: 1;
+  p: "pacifier-holder";
+  b: string[]; // catalogBeadId strings
+}

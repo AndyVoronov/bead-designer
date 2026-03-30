@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { BeadState } from "@/types/bead";
-import { CATALOG_BEADS } from "@/data/catalogBeads";
+import { CATALOG_BEADS, getCatalogBead } from "@/data/catalogBeads";
 import { catalogBeadToBeadState } from "@/lib/catalogUtils";
 
 // ── Default chain ────────────────────────────────────────────────────────────
@@ -75,5 +75,20 @@ export const useDesignStore = create<DesignState>((set, get) => ({
 
   resetDesign: () => {
     set({ beads: DEFAULT_BEADS, selectedBeadId: null });
+  },
+
+  loadFromCatalogIds: (ids: string[]) => {
+    const beads: BeadState[] = [];
+    for (const id of ids) {
+      const catalogBead = getCatalogBead(id);
+      if (catalogBead) {
+        beads.push(catalogBeadToBeadState(catalogBead));
+      }
+    }
+    set({ beads, selectedBeadId: null });
+  },
+
+  clearDesign: () => {
+    set({ beads: [], selectedBeadId: null });
   },
 }));

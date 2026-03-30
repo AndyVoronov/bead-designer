@@ -44,7 +44,7 @@
 
 ## Tasks
 
-- [ ] **T01: DesignSerializer + store extensions** `est:30m`
+- [x] **T01: DesignSerializer + store extensions** `est:30m`
   - Why: Serialization is the risk-free foundation that both sharing (T03) and template seeding (T02) depend on. Getting it right first with comprehensive tests prevents cascading bugs.
   - Files: `src/lib/serialization.ts`, `src/lib/__tests__/serialization.test.ts`, `src/types/bead.ts`, `src/stores/useDesignStore.ts`
   - Do: Install `lz-string`. Add `SerializableDesign` interface to `src/types/bead.ts` with `{ v: 1, p: "pacifier-holder", b: string[] }`. Create `encodeDesign(beads: BeadState[]): string` and `decodeDesign(code: string): SerializableDesign | null` in `src/lib/serialization.ts`. `encodeDesign` extracts `catalogBeadId` from each bead (skip beads without it), builds the serializable object, JSON.stringify, lz-string `compressToEncodedURIComponent`. `decodeDesign` reverses: decompress, JSON.parse, validate structure (version check), return null on any error. Add `loadFromCatalogIds(ids: string[])` and `clearDesign()` actions to `useDesignStore` — `loadFromCatalogIds` resets store then calls `catalogBeadToBeadState` for each ID and appends. Write tests: round-trip 1/7/40 beads, invalid code returns null, version mismatch handling, beads without catalogBeadId are skipped.
