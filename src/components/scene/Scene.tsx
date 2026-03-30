@@ -31,6 +31,8 @@ import type { BeadState } from "@/types/bead";
 export interface SceneProps {
   /** Array of bead descriptors — drives chain composition. */
   beads: BeadState[];
+  /** Currently selected bead ID for highlight rendering (T05). */
+  selectedBeadId?: string | null;
 }
 
 /**
@@ -59,7 +61,7 @@ function DragAwareOrbitControls() {
  * Root 3D scene: Canvas → Physics → BeadChain → ThreadLine.
  * SSR-safe (loaded via SceneLoader with dynamic ssr:false).
  */
-export default function Scene({ beads }: SceneProps) {
+export default function Scene({ beads, selectedBeadId }: SceneProps) {
   return (
     <Canvas
       camera={{ position: [0, 1, 7], fov: 50 }}
@@ -90,7 +92,7 @@ export default function Scene({ beads }: SceneProps) {
 
         {/* Physics world: gravity tuned for snappy feel (Vercel pattern) */}
         <Physics gravity={[0, -40, 0]}>
-          <BeadChain beads={beads} anchorPosition={[0, 3, 0]} />
+          <BeadChain beads={beads} anchorPosition={[0, 3, 0]} selectedBeadId={selectedBeadId} />
         </Physics>
 
         {/* Soft ground shadow — resolution 256 for perf (default 512) */}

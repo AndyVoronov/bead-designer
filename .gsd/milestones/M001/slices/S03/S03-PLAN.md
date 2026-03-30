@@ -88,7 +88,7 @@
   - Verify: `npx vitest run` — all 17 existing tests + new store tests pass. `npx vitest run src/stores/__tests__/useDesignStore.test.ts` passes specifically.
   - Done when: useDesignStore created with all actions, tests pass, SceneLoader reads beads from store and buttons work
 
-- [ ] **T03: Build EditorCanvas layout replacing SceneLoader** `est:1h`
+- [x] **T03: Build EditorCanvas layout replacing SceneLoader** `est:1h`
   - Why: This is the main editor shell that composes 3D canvas, toolbar, and catalog panel. It replaces the demo-only SceneLoader with a production editor layout designed for mobile.
   - Files: `src/components/editor/EditorCanvas.tsx`, `src/components/editor/EditorToolbar.tsx`, `src/app/page.tsx`, `src/components/scene/Scene.tsx`
   - Do:

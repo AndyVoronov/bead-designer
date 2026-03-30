@@ -1,5 +1,5 @@
-import SceneLoader from "@/components/SceneLoader";
+import EditorCanvas from "@/components/editor/EditorCanvas";
 
 export default function Home() {
-  return <SceneLoader />;
+  return <EditorCanvas />;
 }

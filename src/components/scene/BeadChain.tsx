@@ -53,6 +53,8 @@ export interface BeadChainProps {
   anchorPosition: [number, number, number];
   /** Thread colour (default: "#8B4513" — saddle brown). */
   threadColor?: string;
+  /** Currently selected bead ID for highlight rendering (T05). */
+  selectedBeadId?: string | null;
 }
 
 /**
@@ -63,6 +65,7 @@ export function BeadChain({
   beads,
   anchorPosition,
   threadColor = "#8B4513",
+  selectedBeadId,
 }: BeadChainProps) {
   const [ax, ay, az] = anchorPosition;
 
