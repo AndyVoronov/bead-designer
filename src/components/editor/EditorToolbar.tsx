@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDesignStore } from "@/stores/useDesignStore";
 import { encodeDesign } from "@/lib/serialization";
+import { generateTelegramLink } from "@/lib/telegram";
 
 interface EditorToolbarProps {
   catalogOpen: boolean;
@@ -21,12 +22,20 @@ export function EditorToolbar({ catalogOpen, onToggleCatalog }: EditorToolbarPro
 
   // ── Share state ────────────────────────────────────────────────
   const [copied, setCopied] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!copied) return;
     const timer = setTimeout(() => setCopied(false), 2000);
     return () => clearTimeout(timer);
   }, [copied]);
+
+  useEffect(() => {
+    if (!orderError) return;
+    const timer = setTimeout(() => setOrderError(null), 3000);
+    return () => clearTimeout(timer);
+  }, [orderError]);
 
   const canShare = beads.some((b) => !!b.catalogBeadId);
 
@@ -43,65 +52,104 @@ export function EditorToolbar({ catalogOpen, onToggleCatalog }: EditorToolbarPro
     }
   }, [beads, canShare]);
 
+  const canOrder = beads.length > 0;
+
+  const handleOrder = useCallback(async () => {
+    if (!canOrder || isOrdering) return;
+    setIsOrdering(true);
+    setOrderError(null);
+    try {
+      const code = encodeDesign(beads);
+      if (!code) return;
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designCode: code, beadCount: beads.length }),
+      });
+      if (!res.ok) throw new Error("Order failed");
+      const order = await res.json();
+      const link = generateTelegramLink(order.designCode, order.beadCount);
+      window.open(link, "_blank", "noopener");
+    } catch (err) {
+      console.error("Failed to create order:", err);
+      setOrderError("Не удалось создать заказ");
+    } finally {
+      setIsOrdering(false);
+    }
+  }, [beads, canOrder, isOrdering]);
+
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 flex items-center justify-between px-4 py-3 bg-white/70 backdrop-blur-md border-t border-gray-200/50 z-10"
+      className="fixed bottom-0 left-0 right-0 flex flex-col gap-2 px-4 py-3 bg-white/70 backdrop-blur-md border-t border-gray-200/50 z-10"
       style={{ touchAction: "manipulation" }}
     >
-      {/* ── Left: bead count badge ──────────────────────────────── */}
-      <span className="text-sm font-medium text-gray-600 tabular-nums select-none">
-        {beadCount}{" "}
-        {beadCount === 1 ? "бусина" : beadCount < 5 ? "бусины" : "бусин"}
-      </span>
+      {/* ── Order CTA (full-width above actions) ──────────────── */}
+      <button
+        onClick={handleOrder}
+        disabled={!canOrder || isOrdering}
+        className="w-full py-2.5 text-sm font-semibold rounded-xl text-white transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-[0.98]"
+        style={{ backgroundColor: isOrdering ? "#9ca3af" : "#10b981" }}
+      >
+        {isOrdering ? "Отправка..." : orderError ? orderError : "🛒 Заказать"}
+      </button>
 
-      {/* ── Right: action buttons ───────────────────────────────── */}
-      <div className="flex items-center gap-2">
-        {/* Catalog toggle */}
-        <button
-          onClick={onToggleCatalog}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl transition-all duration-150 cursor-pointer select-none active:scale-95"
-          style={{
-            backgroundColor: catalogOpen ? "#dbeafe" : "#f0fdf4",
-            color: catalogOpen ? "#1d4ed8" : "#15803d",
-          }}
-          aria-label={catalogOpen ? "Закрыть каталог" : "Открыть каталог"}
-          aria-expanded={catalogOpen}
-        >
-          <CatalogIcon open={catalogOpen} />
-          <span>{catalogOpen ? "Закрыть" : "Каталог"}</span>
-        </button>
+      {/* ── Bottom row: bead count + action buttons ──────────── */}
+      <div className="flex items-center justify-between">
+        {/* ── Left: bead count badge ────────────────────────────── */}
+        <span className="text-sm font-medium text-gray-600 tabular-nums select-none">
+          {beadCount}{" "}
+          {beadCount === 1 ? "бусина" : beadCount < 5 ? "бусины" : "бусин"}
+        </span>
 
-        {/* Remove selected bead */}
-        <button
-          onClick={() => useDesignStore.getState().removeSelected()}
-          disabled={!selectedId}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-95"
-          aria-label="Удалить выбранную бусину"
-        >
-          <TrashIcon />
-          <span>Удалить</span>
-        </button>
+        {/* ── Right: action buttons ─────────────────────────────── */}
+        <div className="flex items-center gap-2">
+          {/* Catalog toggle */}
+          <button
+            onClick={onToggleCatalog}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl transition-all duration-150 cursor-pointer select-none active:scale-95"
+            style={{
+              backgroundColor: catalogOpen ? "#dbeafe" : "#f0fdf4",
+              color: catalogOpen ? "#1d4ed8" : "#15803d",
+            }}
+            aria-label={catalogOpen ? "Закрыть каталог" : "Открыть каталог"}
+            aria-expanded={catalogOpen}
+          >
+            <CatalogIcon open={catalogOpen} />
+            <span>{catalogOpen ? "Закрыть" : "Каталог"}</span>
+          </button>
 
-        {/* Share / Поделиться */}
-        <button
-          onClick={handleShare}
-          disabled={!canShare}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-95"
-          aria-label="Поделиться ссылкой на дизайн"
-        >
-          {copied ? <CheckIcon /> : <ShareIcon />}
-          <span>{copied ? "Скопировано!" : "Поделиться"}</span>
-        </button>
+          {/* Remove selected bead */}
+          <button
+            onClick={() => useDesignStore.getState().removeSelected()}
+            disabled={!selectedId}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-95"
+            aria-label="Удалить выбранную бусину"
+          >
+            <TrashIcon />
+            <span>Удалить</span>
+          </button>
 
-        {/* Reset design */}
-        <button
-          onClick={() => useDesignStore.getState().resetDesign()}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all duration-150 cursor-pointer select-none active:scale-95"
-          aria-label="Сбросить цепочку"
-        >
-          <ResetIcon />
-          <span>Сброс</span>
-        </button>
+          {/* Share / Поделиться */}
+          <button
+            onClick={handleShare}
+            disabled={!canShare}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-95"
+            aria-label="Поделиться ссылкой на дизайн"
+          >
+            {copied ? <CheckIcon /> : <ShareIcon />}
+            <span>{copied ? "Скопировано!" : "Поделиться"}</span>
+          </button>
+
+          {/* Reset design */}
+          <button
+            onClick={() => useDesignStore.getState().resetDesign()}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all duration-150 cursor-pointer select-none active:scale-95"
+            aria-label="Сбросить цепочку"
+          >
+            <ResetIcon />
+            <span>Сброс</span>
+          </button>
+        </div>
       </div>
     </div>
   );
