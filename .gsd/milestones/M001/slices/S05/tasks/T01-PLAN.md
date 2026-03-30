@@ -72,6 +72,12 @@ Add the Order model to Prisma schema, run migration, create POST/GET /api/orders
 - Browser: POST to `/api/orders` with `{"designCode":"test","beadCount":3}` returns order object with id, status "new", createdAt
 - Browser: After POST, `GET /api/orders` returns array containing the created order
 
+## Observability Impact
+
+- **New signals:** Order model introduces a new persistence surface — every POST /api/orders creates a row in SQLite with status "new" and a designCode. This is the first write path beyond templates.
+- **Inspection:** Future agents can inspect orders via `GET /api/orders` (JSON array, newest first) or `npx prisma studio` (visual DB browser). The migration file in `prisma/migrations/` serves as a schema change log.
+- **Failure visibility:** POST /api/orders returns `{ error: string }` with HTTP 500 on DB failures (e.g., duplicate designCode unique constraint violation). The catch block logs to `console.error` for server-side diagnostics. GET failures surface as unhandled 500s from Prisma — consistent with the templates route pattern.
+
 ## Inputs
 
 - `prisma/schema.prisma` — existing schema with Bead and Template models; add Order model here

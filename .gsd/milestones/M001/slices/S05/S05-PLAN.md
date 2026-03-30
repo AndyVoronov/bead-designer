@@ -45,7 +45,7 @@
 
 ## Tasks
 
-- [ ] **T01: Order model, API endpoints, and Telegram link generator** `est:30m`
+- [x] **T01: Order model, API endpoints, and Telegram link generator** `est:30m`
   - Why: Устанавливает backend foundation — schema, migration, endpoints, и pure function для Telegram URL. Всё что нужно T02 для подключения UI.
   - Files: `prisma/schema.prisma`, `src/app/api/orders/route.ts`, `src/lib/telegram.ts`, `src/lib/__tests__/telegram.test.ts`
   - Do: (1) Добавить Order model в schema.prisma с полями: id (Int, autoincrement), designCode (String, unique), designState (String, JSON), status (String, default "new"), beadCount (Int), createdAt. (2) Запустить `npx prisma migrate dev --name add-order-model`. (3) Создать POST handler в /api/orders/route.ts — принимает { designCode: string, beadCount: number }, создаёт запись в БД, возвращает объект заказа. (4) Создать GET handler — findMany с orderBy createdAt desc. (5) Создать src/lib/telegram.ts с generateTelegramLink(designCode, beadCount) → возвращает `https://t.me/VoronovAndrey?text=...` с encodeURIComponent для русского текста. (6) Написать unit-тесты для generateTelegramLink.

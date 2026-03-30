@@ -29,3 +29,12 @@ model Template {
   isUserSubmitted Boolean  @default(false)
   createdAt       DateTime @default(now())
 }
+
+model Order {
+  id          Int      @id @default(autoincrement())
+  designCode  String   @unique
+  designState String   // JSON string of SerializableDesign
+  status      String   @default("new")  // "new" | "processing" | "completed"
+  beadCount   Int
+  createdAt   DateTime @default(now())
+}
