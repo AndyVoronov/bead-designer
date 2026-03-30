@@ -52,7 +52,7 @@
   - Verify: `npm run build` exits 0; `npm run dev` starts and serves http://localhost:3000 without console errors
   - Done when: `npm run build` succeeds, `npm run dev` renders a 3D scene with a test mesh visible in browser
 
-- [ ] **T02: Build physics bead chain with rope joints and MeshLine thread** `est:1.5h`
+- [x] **T02: Build physics bead chain with rope joints and MeshLine thread** `est:1.5h`
   - Why: This is the core of R001 — the physical bead chain with realistic rope physics. Without this, there's no product. Uses the proven Vercel badge architecture: fixed anchor → array of dynamic RigidBodies → rope joints between neighbors.
   - Files: `src/components/scene/BeadRigidBody.tsx`, `src/components/scene/BeadChain.tsx`, `src/components/scene/ThreadLine.tsx`, `src/components/scene/Scene.tsx`
   - Do: Create `BeadRigidBody`: RigidBody with `BallCollider` + `<mesh>` sphere, accepts bead props (radius, color, damping). Set `angularDamping={2} linearDamping={2}` on each body for stability. Create `BeadChain`: renders a fixed anchor RigidBody at `[0, 2, 0]`, then N `BeadRigidBody` components below it. Connect each pair with `useRopeJoint` — anchor→bead1, bead1→bead2, etc. Store body refs in a useRef map keyed by index. Create `ThreadLine`: in useFrame, read `rigidBody.translation()` from all body refs, build `CatmullRomCurve3`, update a `MeshLine` geometry. Use `extend({ MeshLineGeometry, MeshLineMaterial })` from meshline. Wire BeadChain into Scene replacing the test mesh. Use 7 beads as default. Confirm chain hangs and swings.
