@@ -1,0 +1,23 @@
+# Decisions Register
+
+<!-- Append-only. Never edit or remove existing rows.
+     To reverse a decision, add a new row that supersedes it.
+     Read this file at the start of any planning or research phase. -->
+
+| # | When | Scope | Decision | Choice | Rationale | Revisable? |
+|---|------|-------|----------|--------|-----------|------------|
+| D001 | M001 | arch | 3D framework | React Three Fiber + Three.js | Декларативный React-рендерер для 3D, лучшая интеграция с React-экосистемой, built-in event system для интерактивности, PerformanceMonitor для мобильной адаптации | Yes — если производительность окажется недостаточной |
+| D002 | M001 | arch | Physics engine | React Three Rapier (Rapier WASM) | Rope joints, spring joints, spherical joints — всё что нужно для цепочки бусин. WASM = быстрая физика в браузере. Подтверждено документацией. | No |
+| D003 | M001 | arch | Web framework | Next.js (App Router) | SSR, API routes для бэкенда, React-экосистема, хорошая история деплоя на VPS | No |
+| D004 | M001 | arch | Database | PostgreSQL + Prisma ORM | Надёжная реляционная БД для продуктовых данных. Prisma — type-safe ORM, миграции, seed data | Yes — если reg.ru VPS не тянет PostgreSQL |
+| D005 | M001 | arch | State management | Zustand (3D state) + React Query (server state) | Zustand — легковесный, отлично для 3D-сцены. React Query — кэширование и синхронизация серверных данных | Yes — если growing pains |
+| D006 | M001 | pattern | Rendering pipeline | AdaptiveRenderer с PerformanceMonitor + dynamic DPR | Автоматическое снижение качества при падении FPS на мобильных. Post-processing (SSGI, HBAO) отключается на слабых устройствах. | Yes — при реальном профилировании |
+| D007 | M001 | pattern | Design serialization | JSON → LZ-String compression → base64url | Компактные URL для шеринга. LZ-String даёт 60-70% сжатие на типичных JSON-данных. base64url — URL-safe. | Yes — если URL длины окажется недостаточно |
+| D008 | M001 | integration | Telegram notification | Deep link без бота (https://t.me/VoronovAndrey?text=...) | Простота: один URL redirect, не нужен Telegram Bot API token. Предзаполненное сообщение с кодом изделия. | Yes — если понадобится bot API для richer interaction |
+| D009 | M001 | arch | Styling | Tailwind CSS, mobile-first | Быстрая разработка responsive UI. Utility-first отлично для мобильного-first подхода. | No |
+| D010 | M001 | arch | Deployment | Node.js на VPS reg.ru + Nginx reverse proxy + Let's Encrypt | Стандартный стек для Next.js на VPS. Docker опционально. | Yes — если reg.ru предоставляет иной hosting stack |
+| D011 | M001 | ux | Order flow | Минимальная трения: один тап «Заказать» → БД → Telegram | Никаких форм, полей, регистрации. Максимальная конверсия. | Yes — если нужен будет сбор данных о клиенте |
+| D012 | M001 | ux | Mobile-first | Мобильный браузер — primary target, десктоп — secondary | «Основная масса будет с телефона». Адаптивный рендеринг, тач-жесты, оптимизация bundle size. | No |
+| D013 | M001 | T01 | Turbopack config | turbopack:{} instead of webpack experiments | Next.js 16 defaults to Turbopack; webpack config causes build failure. Turbopack handles WASM natively. | Yes — if webpack needed for specific loader |
+| D014 | M001 | T01 | SSR boundary pattern | SceneLoader client wrapper for dynamic(ssr:false) | Next.js 16 forbids ssr:false in Server Components. Client wrapper isolates the boundary cleanly. | Yes — if Next.js re-allows it |
+| D015 | M001 | T01 | Dev server from real path | Run npm run dev from C:\Users\Andy\.gsd\projects\... not junction | Windows junction causes Next.js to double-concatenate paths, resulting in ENOENT on routes-manifest.json. | No |

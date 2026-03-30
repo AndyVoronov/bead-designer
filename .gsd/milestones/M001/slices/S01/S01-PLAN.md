@@ -45,7 +45,7 @@
 
 ## Tasks
 
-- [ ] **T01: Scaffold Next.js project with 3D dependencies and SSR-safe Canvas** `est:45m`
+- [x] **T01: Scaffold Next.js project with 3D dependencies and SSR-safe Canvas** `est:45m`
   - Why: Greenfield — no source code exists. Everything must be created from scratch: Next.js project, 3D libraries, TypeScript types, SSR configuration, test framework, and a minimal working Canvas+Physics scene that renders without errors.
   - Files: `package.json`, `next.config.ts`, `tsconfig.json`, `src/types/bead.ts`, `src/components/scene/Scene.tsx`, `src/app/page.tsx`, `src/app/layout.tsx`, `src/app/globals.css`, `vitest.config.ts`
   - Do: Run `create-next-app` with App Router + TypeScript + Tailwind + no src dir (use `src/`). Install `@react-three/fiber @react-three/rapier @react-three/drei three @types/three meshline`. Configure `next.config.ts`: `transpilePackages: ['meshline']`, `webpack` config for WASM `.wasm` file handling. Set up `vitest.config.ts` with jsdom environment. Create `src/types/bead.ts` with all types from research. Create minimal `Scene.tsx` with `Canvas` + `<Physics gravity={[0, -40, 0]}>` + drei `Environment` + `<OrbitControls>` + a simple test mesh. Wire into `page.tsx` via `dynamic(() => import(Scene), { ssr: false })`. Confirm `npm run build` passes.
