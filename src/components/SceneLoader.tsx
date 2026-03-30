@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useBeadChain } from "@/hooks/useBeadChain";
+import { useDesignStore } from "@/stores/useDesignStore";
 
 // Dynamically import the Scene to avoid SSR issues with Three.js / WebGL
 const Scene = dynamic(() => import("@/components/scene/Scene"), {
@@ -9,11 +9,30 @@ const Scene = dynamic(() => import("@/components/scene/Scene"), {
 });
 
 /**
- * Client-side wrapper that owns bead chain state and passes it to the Scene.
- * Also renders minimal overlay UI for demo purposes.
+ * Client-side wrapper that reads bead chain state from the global Zustand
+ * design store and passes it to the Scene.
+ *
+ * This is a temporary bridge — T03 will replace this with EditorCanvas.
  */
 export default function SceneLoader() {
-  const { beads, addBead, removeLast, reset } = useBeadChain();
+  const beads = useDesignStore((s) => s.beads);
+
+  const handleAdd = () => {
+    // Add the first catalog bead as a demo default
+    useDesignStore.getState().addBead("cb-001");
+  };
+
+  const handleRemoveLast = () => {
+    const currentBeads = useDesignStore.getState().beads;
+    if (currentBeads.length > 0) {
+      const lastBead = currentBeads[currentBeads.length - 1];
+      useDesignStore.getState().removeBead(lastBead.id);
+    }
+  };
+
+  const handleReset = () => {
+    useDesignStore.getState().resetDesign();
+  };
 
   return (
     <div className="relative w-screen h-screen">
@@ -40,14 +59,14 @@ export default function SceneLoader() {
         <span className="text-sm text-gray-500 mr-2">{beads.length} beads</span>
 
         <button
-          onClick={() => addBead()}
+          onClick={handleAdd}
           className="px-3 py-1.5 text-sm font-medium rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
         >
           + Add
         </button>
 
         <button
-          onClick={removeLast}
+          onClick={handleRemoveLast}
           disabled={beads.length === 0}
           className="px-3 py-1.5 text-sm font-medium rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
@@ -55,7 +74,7 @@ export default function SceneLoader() {
         </button>
 
         <button
-          onClick={reset}
+          onClick={handleReset}
           className="px-3 py-1.5 text-sm font-medium rounded-full bg-gray-50 text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
         >
           ↺ Reset

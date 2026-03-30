@@ -77,7 +77,7 @@
   - Verify: `npx tsc --noEmit` passes (new types used correctly). `grep -c "export const CATALOG_BEADS" src/data/catalogBeads.ts` returns 1. `grep -c "model Bead" prisma/schema.prisma` returns 1.
   - Done when: `CatalogBead` type defined, 80+ beads in `CATALOG_BEADS` array, each has all required fields, Prisma schema file exists
 
-- [ ] **T02: Create Zustand useDesignStore replacing useBeadChain** `est:45m`
+- [x] **T02: Create Zustand useDesignStore replacing useBeadChain** `est:45m`
   - Why: The current `useBeadChain` hook is local state inside `SceneLoader` — the catalog panel and toolbar need to read/write the same bead array. A global Zustand store is the single source of truth connecting 3D scene, catalog, and toolbar.
   - Files: `src/stores/useDesignStore.ts`, `src/stores/__tests__/useDesignStore.test.ts`, `src/hooks/useBeadChain.ts`, `src/components/SceneLoader.tsx`, `src/components/scene/Scene.tsx`, `src/components/scene/BeadChain.tsx`
   - Do:
