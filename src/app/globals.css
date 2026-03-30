@@ -29,3 +29,26 @@ body {
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Home page: the template gallery needs normal scrolling behaviour.
+   The global touch-action: none and overflow: hidden are for the 3D canvas
+   editor and must be overridden here. */
+.home-page-root {
+  overflow: auto;
+  touch-action: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-page-root::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar on horizontal-scroll template gallery */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

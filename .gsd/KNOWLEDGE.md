@@ -59,3 +59,7 @@
 - **dotenv required in prisma.config.ts**: The `env()` helper from `prisma/config` reads from `process.env`, NOT from `.env` files. You must `import "dotenv/config"` at the top of `prisma.config.ts` to load the `.env` file.
 - **Driver adapters required**: PrismaClient constructor needs a driver adapter in v7. For SQLite: `@prisma/adapter-libsql` + `@libsql/client`. For PostgreSQL: `@prisma/adapter-pg`. Import name is `PrismaLibSql` (lowercase 'ql'), NOT `PrismaLibSQL`.
 - **SQLite URLs resolve from config location**: In Prisma 7, relative SQLite URLs (`file:./dev.db`) resolve relative to `prisma.config.ts`, not `schema.prisma`.
+
+## lz-string URL Encoding in Next.js Path Segments
+
+- **`+` in lz-string output gets encoded as `%2B`**: lz-string's `compressToEncodedURIComponent` uses `+` as a valid output character. When this output is placed in a URL path segment, browsers encode `+` to `%2B`. Next.js does NOT decode `%2B` back to `+` in dynamic route `params`, so the client receives literal `%2B` instead of `+`. **Fix**: call `decodeURIComponent(code)` in `decodeDesign()` before passing to `LZString.decompressFromEncodedURIComponent()`. This is safe because `decodeURIComponent` is a no-op for strings without encoded characters.

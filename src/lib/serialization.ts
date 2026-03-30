@@ -24,6 +24,10 @@ export function encodeDesign(beads: BeadState[]): string {
 /**
  * Decode a URL-safe design code back into a SerializableDesign.
  *
+ * Applies `decodeURIComponent` first because lz-string output may contain
+ * `+` which browsers encode as `%2B` in URL path segments, and Next.js
+ * does not decode `%2B` back to `+` in dynamic route params.
+ *
  * Returns `null` for any invalid input: malformed base64url, invalid JSON,
  * missing required fields, or unsupported version.
  */
@@ -31,7 +35,11 @@ export function decodeDesign(code: string): SerializableDesign | null {
   if (!code || typeof code !== "string") return null;
 
   try {
-    const json = LZString.decompressFromEncodedURIComponent(code);
+    // Normalize URL-encoded characters (e.g. %2B → +) that may appear
+    // when design codes are embedded in URL path segments.
+    const normalized = decodeURIComponent(code);
+
+    const json = LZString.decompressFromEncodedURIComponent(normalized);
     if (!json) return null;
 
     const parsed: unknown = JSON.parse(json);
