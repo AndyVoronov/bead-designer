@@ -50,7 +50,7 @@
 
 ## Tasks
 
-- [ ] **T01: Auth layer + Admin layout shell** `est:30m`
+- [x] **T01: Auth layer + Admin layout shell** `est:30m`
   - Why: All admin pages and API routes depend on auth being enforced. The layout provides the sidebar nav and CSS overrides that all pages inherit. This is the foundation everything else builds on.
   - Files: `src/middleware.ts`, `src/app/admin/login/page.tsx`, `src/app/admin/layout.tsx`, `src/app/admin/page.tsx`, `src/app/api/admin/auth/route.ts`, `src/app/globals.css`
   - Do: Create Next.js middleware checking admin_token cookie on /admin and /api/admin paths. Create login page with password form. Create admin layout with sidebar nav and admin-root CSS class overriding global overflow:hidden. Create auth API route that sets/clears httpOnly cookie. Add ADMIN_PASSWORD to .env. Dashboard page redirects to /admin/templates.

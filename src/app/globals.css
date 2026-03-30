@@ -43,6 +43,19 @@ body {
   display: none;
 }
 
+/* Admin panel: the admin dashboard needs normal scrolling behaviour.
+   The global touch-action: none and overflow: hidden are for the 3D canvas
+   editor and must be overridden here. */
+.admin-root {
+  overflow: auto;
+  touch-action: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-root::-webkit-scrollbar {
+  display: none;
+}
+
 /* Hide scrollbar on horizontal-scroll template gallery */
 .scrollbar-hide {
   -ms-overflow-style: none;
