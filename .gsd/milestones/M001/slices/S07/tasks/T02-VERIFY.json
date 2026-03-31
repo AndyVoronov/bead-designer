@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "taskId": "T02",
+  "unitId": "M001/S07/T02",
+  "timestamp": 1774896466750,
+  "passed": false,
+  "discoverySource": "task-plan",
+  "checks": [
+    {
+      "command": "test -f ecosystem.config.cjs",
+      "exitCode": 1,
+      "durationMs": 20,
+      "verdict": "fail"
+    },
+    {
+      "command": "test -f deploy.sh",
+      "exitCode": 1,
+      "durationMs": 19,
+      "verdict": "fail"
+    }
+  ],
+  "retryAttempt": 1,
+  "maxRetries": 2
+}

@@ -66,6 +66,16 @@ This task closes R010: "Приложение развёрнуто и досту�
    - If deployed successfully: mark R010 as validated with production URL
    - If VPS not accessible: update R010 notes with "deploy scripts ready, awaiting VPS credentials"
 
+## Observability Impact
+
+This task adds runtime-inspection surfaces for the deployed application:
+
+- **`scripts/smoke-test.sh`** — Post-deploy health check that verifies all 16 routes respond correctly (200/302/401). This is the primary inspection surface after deploy — any agent or operator can run it to verify deployment health.
+- **PM2 status/logs** — `pm2 status bead-designer` and `pm2 logs bead-designer` on the VPS provide process health and error visibility (created in T02, exercised in deploy step).
+- **Nginx access/error logs** — `/var/log/nginx/access.log` and `/var/log/nginx/error.log` capture HTTP-level failures (502 if Next.js is down, SSL errors).
+- **Build verification** — `npm run build` output confirms all 16 routes compile successfully. Failed routes appear as build errors, making missing/misconfigured routes immediately visible.
+- **Failure visibility** — If deploy fails, `deploy.sh` exits immediately (set -euo pipefail) with [N/8] step prefix indicating which step failed. PM2 auto-restarts crashed processes with error timestamps.
+
 ## Must-Haves
 
 - [ ] `npm run build` succeeds with `.next/standalone/` directory present

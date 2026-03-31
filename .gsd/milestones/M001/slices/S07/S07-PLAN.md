@@ -56,7 +56,7 @@
   - Do: Создать nginx.conf с reverse proxy на localhost:3000, SSL через Let's Encrypt, gzip, X-Accel-Buffering: no. Создать ecosystem.config.cjs для PM2 (next start, автозапуск, логи). Создать deploy.sh (build → rsync → remote prisma db push + seed + pm2 restart). Создать scripts/setup-vps.sh (установка Node.js 20, PostgreSQL, Nginx, certbot, PM2, создание БД и юзера). Все параметры через переменные окружения с дефолтами.
   - Verify: `test -f nginx.conf && test -f ecosystem.config.cjs && test -f deploy.sh && test -f scripts/setup-vps.sh`
   - Done when: Все конфигурационные файлы существуют, shell-скрипты синтаксически корректны (bash -n)
-- [ ] **T03: Production build verification + deploy execution** `est:45m`
+- [x] **T03: Production build verification + deploy execution** `est:45m`
   - Why: Финальная задача проверяет что production-сборка работает со всеми маршрутами, выполняет деплой на VPS (если доступны учётные данные), и проводит smoke test. Это закрывает R010.
   - Files: `scripts/smoke-test.sh`, `DEPLOY.md`
   - Do: Запустить npm run build и проверить что все 16 маршрутов в выводе. Создать scripts/smoke-test.sh для проверки здоровья на VPS (curl все маршруты). Создать DEPLOY.md с пошаговой инструкцией. Собрать VPS credentials через secure_env_collect. Запустить deploy.sh. Запустить smoke-test.sh. Обновить R010 validation.
