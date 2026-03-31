@@ -10,6 +10,9 @@
  * - The thread curve uses the same particle positions as beads
  * - No external physics engine needed — runs in useFrame
  *
+ * Constraints use adjacent particle radii for rest lengths,
+ * so beads naturally touch when the solver converges.
+ *
  * Constraints are solved iteratively each frame (Gauss-Seidel relaxation).
  * More iterations = stiffer rope, fewer = stretchier.
  */
@@ -40,7 +43,7 @@ export interface Constraint {
   a: number;
   /** Index of the second particle. */
   b: number;
-  /** Target distance between particles at rest. */
+  /** Target distance between particles at rest (= sum of radii for touching). */
   restLength: number;
   /** How strictly the constraint is enforced (0–1). 1 = rigid. */
   stiffness: number;
@@ -53,10 +56,6 @@ export interface VerletRopeConfig {
   damping?: number;
   /** Number of constraint solver iterations per frame (default: 8). */
   constraintIterations?: number;
-  /** Default spacing between consecutive beads (default: 0.8). */
-  beadSpacing?: number;
-  /** Rope taut factor < 1.0 keeps thread slightly taut (default: 0.95). */
-  tautFactor?: number;
 }
 
 // ── Reusable temp vectors (avoid GC) ─────────────────────────────────────────
@@ -84,7 +83,7 @@ export class VerletRope {
 
   /**
    * Add a new particle to the end of the rope.
-   * Optionally link it to the previous particle with a constraint.
+   * Constraint rest length is the sum of adjacent radii (beads touch).
    */
   addParticle(
     position: THREE.Vector3,
@@ -92,7 +91,6 @@ export class VerletRope {
     beadId: string,
     pinned = false,
     linkToPrevious = true,
-    spacing = 0.8,
     stiffness = 1.0,
   ): number {
     const index = this.particles.length;
@@ -109,9 +107,10 @@ export class VerletRope {
 
     this.particles.push(particle);
 
-    // Create constraint to previous particle
+    // Create constraint to previous particle using radii (touching distance)
     if (linkToPrevious && index > 0) {
-      this.addConstraint(index - 1, index, spacing * (spacing > 0 ? 1 : 0.8), stiffness);
+      const touchingLength = this.particles[index - 1].radius + radius;
+      this.addConstraint(index - 1, index, touchingLength, stiffness);
     }
 
     return index;
@@ -119,14 +118,13 @@ export class VerletRope {
 
   /**
    * Insert a particle at a specific index, shifting everything after it.
-   * Rebuilds constraints from scratch to maintain consistency.
+   * Rebuilds constraints from scratch using radii.
    */
   insertParticle(
     index: number,
     position: THREE.Vector3,
     radius: number,
     beadId: string,
-    spacing: number,
   ): void {
     const particle: Particle = {
       position: position.clone(),
@@ -139,35 +137,34 @@ export class VerletRope {
     };
 
     this.particles.splice(index, 0, particle);
-    this.rebuildConstraints(spacing);
+    this.rebuildConstraints();
   }
 
   /**
    * Remove a particle by index.
-   * Constraints are rebuilt to maintain connectivity.
-   * All other particle positions are preserved.
+   * Constraints are rebuilt with gap closing so adjacent beads slide together.
+   * Anchors (__anchor_left__, __anchor_right__) cannot be removed.
    */
-  removeParticle(index: number, spacing: number): void {
+  removeParticle(index: number): void {
     if (index < 0 || index >= this.particles.length) return;
+    const p = this.particles[index];
+    if (p.beadId === "__anchor_left__" || p.beadId === "__anchor_right__") return;
 
     this.particles.splice(index, 1);
 
-    // Don't let the anchor be removed
-    if (this.particles.length > 0) {
-      this.particles[0].pinned = true;
-    }
-
-    this.rebuildConstraints(spacing);
+    this.rebuildConstraints(true); // always close gaps on removal
   }
 
   /**
    * Remove a particle by beadId.
    * Returns true if found and removed.
    */
-  removeParticleByBeadId(beadId: string, spacing: number): boolean {
+  removeParticleByBeadId(beadId: string): boolean {
     const index = this.particles.findIndex((p) => p.beadId === beadId);
-    if (index <= 0) return false; // Can't remove anchor or non-existent
-    this.removeParticle(index, spacing);
+    if (index < 0) return false;
+    const p = this.particles[index];
+    if (p.beadId === "__anchor_left__" || p.beadId === "__anchor_right__") return false;
+    this.removeParticle(index);
     return true;
   }
 
@@ -184,19 +181,25 @@ export class VerletRope {
 
   /**
    * Rebuild all constraints as a simple chain: 0→1→2→...→N.
-   * Called after insert/remove to maintain connectivity.
+   * Rest lengths are computed from adjacent particle radii (touching distance).
+   *
+   * `closeGaps`: when true, restLength = sum of radii regardless of current
+   * positions, so the solver pulls separated particles together. When false,
+   * restLength = max(currentDistance, sumOfRadii) to avoid teleporting beads.
    */
-  rebuildConstraints(spacing: number): void {
+  rebuildConstraints(closeGaps = false): void {
     this.constraints = [];
     for (let i = 0; i < this.particles.length - 1; i++) {
       const a = this.particles[i];
       const b = this.particles[i + 1];
-      // Use current distance as rest length so we don't teleport beads
-      const dist = a.position.distanceTo(b.position);
+      const touchingLength = a.radius + b.radius;
+      const restLength = closeGaps
+        ? touchingLength
+        : Math.max(a.position.distanceTo(b.position), touchingLength);
       this.constraints.push({
         a: i,
         b: i + 1,
-        restLength: Math.max(dist, spacing * 0.3), // Don't let rest length collapse
+        restLength,
         stiffness: 1.0,
       });
     }
@@ -224,16 +227,14 @@ export class VerletRope {
     if (index < 0 || index >= this.particles.length) return;
     const p = this.particles[index];
 
-    // Don't unpin the anchor (index 0)
-    if (index === 0) return;
+    // Don't unpin anchors
+    if (p.beadId === "__anchor_left__" || p.beadId === "__anchor_right__") return;
 
     p.pinned = false;
 
     // Apply throw velocity by offsetting previousPosition
     if (velocity && velocity.lengthSq() > 0) {
-      // Verlet velocity is implicit: pos - prevPos
-      // To set velocity v, we set prevPos = pos - v * dt
-      const dt = 1 / 60; // Approximate frame time
+      const dt = 1 / 60;
       p.previousPosition.set(
         p.position.x - velocity.x * dt,
         p.position.y - velocity.y * dt,
@@ -249,16 +250,10 @@ export class VerletRope {
    * @param dt — Delta time in seconds (clamped to prevent explosion).
    */
   update(dt: number): void {
-    // Clamp dt to prevent physics explosion on tab-switch / frame drops
     const safeDt = Math.min(dt, 1 / 30);
 
-    // 1. Verlet integration: apply gravity and damping
     this._integrate(safeDt);
-
-    // 2. Solve constraints iteratively
     this._solveConstraints();
-
-    // 3. Apply bounds (prevent falling through floor, etc.)
     this._applyBounds();
   }
 
@@ -268,8 +263,6 @@ export class VerletRope {
     for (const p of this.particles) {
       if (p.pinned) continue;
 
-      // Verlet integration:
-      // newPos = pos + (pos - prevPos) * damping + acceleration * dt^2
       _delta
         .copy(p.position)
         .sub(p.previousPosition)
@@ -280,7 +273,6 @@ export class VerletRope {
       p.position.add(_delta);
       p.position.addScaledVector(this.gravity, dtSq);
 
-      // Reset acceleration (it's re-applied each frame from gravity)
       p.acceleration.set(0, 0, 0);
     }
   }
@@ -297,7 +289,6 @@ export class VerletRope {
 
         _correction.copy(_diff).multiplyScalar(error * c.stiffness);
 
-        // Distribute correction based on mass (inverse mass weighting)
         const totalMass = pa.mass + pb.mass;
         const ratioA = pa.pinned ? 0 : pb.pinned ? 1 : pb.mass / totalMass;
         const ratioB = pb.pinned ? 0 : pa.pinned ? 1 : pa.mass / totalMass;
@@ -313,41 +304,53 @@ export class VerletRope {
   }
 
   private _applyBounds(): void {
-    // Floor at y = -5 to prevent beads falling forever
     for (const p of this.particles) {
       if (p.pinned) continue;
       if (p.position.y < -5) {
         p.position.y = -5;
-        p.previousPosition.y = -5 + 0.1; // Kill vertical velocity
+        p.previousPosition.y = -5 + 0.1;
       }
     }
   }
 
   // ── Utilities ─────────────────────────────────────────────────────────
 
-  /** Get all particle positions as an array of Vector3 (for ThreadLine). */
   getPositions(): THREE.Vector3[] {
     return this.particles.map((p) => p.position.clone());
   }
 
-  /** Find particle index by beadId. Returns -1 if not found. */
   findParticleByBeadId(beadId: string): number {
     return this.particles.findIndex((p) => p.beadId === beadId);
   }
 
-  /** Check if any particle is currently pinned (being dragged). */
   isAnyPinned(): boolean {
     return this.particles.some((p, i) => p.pinned && i > 0);
   }
 
-  /** Get particle count (including anchor). */
   get particleCount(): number {
     return this.particles.length;
   }
 
-  /** Clear all particles and constraints. */
   dispose(): void {
     this.particles = [];
     this.constraints = [];
+  }
+
+  swapParticlesByBeadId(idA: string, idB: string): boolean {
+    const idxA = this.particles.findIndex((p) => p.beadId === idA);
+    const idxB = this.particles.findIndex((p) => p.beadId === idB);
+    if (idxA < 0 || idxB < 0) return false;
+
+    const a = this.particles[idxA];
+    const b = this.particles[idxB];
+
+    const tmpBeadId = a.beadId;
+    const tmpRadius = a.radius;
+    a.beadId = b.beadId;
+    a.radius = b.radius;
+    b.beadId = tmpBeadId;
+    b.radius = tmpRadius;
+
+    return true;
   }
 }

@@ -23,6 +23,85 @@ const _intersection = new THREE.Vector3();
 const _pointerVec = new THREE.Vector2();
 const _velocity = new THREE.Vector3();
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Find which gap the dragged bead should be inserted into.
+ *
+ * For a rope with particles [anchor_left, bead0, bead1, ..., beadN, anchor_right],
+ * bead indices are [1 .. N]. We compute midpoints between consecutive beads
+ * and find which midpoint the drag position is closest to.
+ *
+ * Returns a store-index (0-based) indicating the new position in the beads array,
+ * or -1 if the bead hasn't moved far enough to warrant a reorder.
+ */
+function computeDropTargetIndex(
+  dragPos: THREE.Vector3,
+  dragBeadId: string,
+  rope: VerletRope,
+  dragStartX: number,
+): number {
+  // Collect bead particles (skip anchors)
+  const beadEntries: { index: number; x: number }[] = [];
+  for (let i = 1; i < rope.particles.length; i++) {
+    const p = rope.particles[i];
+    if (p.beadId === "__anchor_left__" || p.beadId === "__anchor_right__") continue;
+    beadEntries.push({ index: i, x: p.position.x });
+  }
+
+  if (beadEntries.length <= 1) return -1;
+
+  // Find the current index of the dragged bead
+  const dragStoreIdx = beadEntries.findIndex(
+    (e) => rope.particles[e.index].beadId === dragBeadId,
+  );
+  if (dragStoreIdx < 0) return -1;
+
+  // Not enough horizontal movement to reorder
+  const dx = Math.abs(dragPos.x - dragStartX);
+  if (dx < 0.15) return -1;
+
+  // Find which gap the dragged bead's X is closest to.
+  // Gap i is between beadEntries[i] and beadEntries[i+1].
+  // If dragX < gap0, target = 0 (before first).
+  // If dragX > lastGap, target = count (after last).
+  const gaps: { storeIndex: number; midX: number }[] = [];
+
+  // Gap before first bead
+  gaps.push({ storeIndex: 0, midX: beadEntries[0].x - rope.particles[beadEntries[0].index].radius });
+
+  // Gaps between consecutive beads
+  for (let i = 0; i < beadEntries.length - 1; i++) {
+    const a = beadEntries[i];
+    const b = beadEntries[i + 1];
+    const midX = (a.x + b.x) / 2;
+    gaps.push({ storeIndex: i + 1, midX });
+  }
+
+  // Gap after last bead
+  const last = beadEntries[beadEntries.length - 1];
+  gaps.push({
+    storeIndex: beadEntries.length,
+    midX: last.x + rope.particles[last.index].radius,
+  });
+
+  // Find closest gap
+  let bestGap = -1;
+  let bestDist = Infinity;
+  for (const gap of gaps) {
+    const dist = Math.abs(dragPos.x - gap.midX);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestGap = gap.storeIndex;
+    }
+  }
+
+  // No meaningful change
+  if (bestGap === dragStoreIdx) return -1;
+
+  return bestGap;
+}
+
 // ── BeadVisual ───────────────────────────────────────────────────────────────
 
 export interface BeadVisualProps {
@@ -41,10 +120,7 @@ export interface BeadVisualProps {
 
 /**
  * Visual bead mesh positioned by the Verlet simulation each frame.
- * Handles pointer drag via kinematic pin pattern.
- *
- * No RigidBody, no BallCollider — pure Three.js mesh.
- * Drag works by pinning the Verlet particle at the pointer-projected position.
+ * Handles pointer drag → pin → reorder.
  */
 export function BeadVisual({
   beadId,
@@ -59,92 +135,83 @@ export function BeadVisual({
   const groupRef = useRef<THREE.Group>(null);
   const { camera, pointer, gl } = useThree();
 
-  // Drag state (mutable, survives across frames)
   const dragRef = useRef<{
     startTime: number;
     startPointer: { x: number; y: number };
+    startX: number; // X position of the bead at drag start
     history: { pos: THREE.Vector3; time: number }[];
   } | null>(null);
 
-  // ── Pointer Down: start dragging (pin particle) ─────────────────────
+  // ── Pointer Down: start dragging ─────────────────────────────────────
   const onPointerDown = useCallback(
     (e: { stopPropagation: () => void }) => {
       e.stopPropagation();
       const particle = rope.particles[particleIndex];
       if (!particle) return;
 
-      // Pin the particle at its current position
       rope.pinParticle(particleIndex, particle.position.clone());
-
-      // Disable orbit controls while dragging
       useDragStore.getState().setDragging(true);
+      useDragStore.getState().setDraggedBeadId(beadId);
+      useDragStore.getState().setDropTargetIndex(-1);
 
       dragRef.current = {
         startTime: performance.now(),
         startPointer: { x: pointer.x, y: pointer.y },
+        startX: particle.position.x,
         history: [],
       };
 
       gl.domElement.style.cursor = "grabbing";
     },
-    [rope, particleIndex, pointer, gl],
+    [rope, particleIndex, pointer, gl, beadId],
   );
 
-  // ── Pointer Up: stop dragging (unpin particle) ──────────────────────
-  const onPointerUp = useCallback(() => {
-    const drag = dragRef.current;
-    if (!drag) return;
+  // ── Pointer Up: drop bead ────────────────────────────────────────────
+  const onPointerUp = useCallback(
+    (e: { stopPropagation: () => void }) => {
+      e.stopPropagation();
+      const drag = dragRef.current;
+      if (!drag) return;
 
-    const particle = rope.particles[particleIndex];
-    if (!particle) return;
+      const particle = rope.particles[particleIndex];
+      if (!particle) return;
 
-    const elapsed = performance.now() - drag.startTime;
-    const dx = pointer.x - drag.startPointer.x;
-    const dy = pointer.y - drag.startPointer.y;
-    const ndcDistance = Math.sqrt(dx * dx + dy * dy);
-    const isTap = elapsed < TAP_MAX_DURATION && ndcDistance < TAP_MAX_DISTANCE;
+      const elapsed = performance.now() - drag.startTime;
+      const dx = pointer.x - drag.startPointer.x;
+      const dy = pointer.y - drag.startPointer.y;
+      const ndcDistance = Math.sqrt(dx * dx + dy * dy);
+      const isTap = elapsed < TAP_MAX_DURATION && ndcDistance < TAP_MAX_DISTANCE;
 
-    if (isTap) {
-      // Tap → select bead
-      const { selectedBeadId } = useDesignStore.getState();
-      useDesignStore.getState().selectBead(
-        selectedBeadId === beadId ? null : beadId,
-      );
-      // Unpin without velocity
-      rope.unpinParticle(particleIndex);
-    } else {
-      // Drag → compute throw velocity and unpin
-      const history = drag.history;
-      if (history.length >= 2) {
-        const recent = history.slice(-HISTORY_SIZE);
-        const first = recent[0];
-        const last = recent[recent.length - 1];
-        const dt = (last.time - first.time) / 1000;
-        if (dt > 0.001) {
-          _velocity.set(
-            (last.pos.x - first.pos.x) / dt,
-            (last.pos.y - first.pos.y) / dt,
-            (last.pos.z - first.pos.z) / dt,
-          );
-          // Clamp velocity
-          const maxVel = 25;
-          _velocity.clampLength(0, maxVel);
-          rope.unpinParticle(particleIndex, _velocity);
+      const store = useDragStore.getState();
+      const design = useDesignStore.getState();
+
+      if (isTap) {
+        // Tap → select bead
+        design.selectBead(
+          design.selectedBeadId === beadId ? null : beadId,
+        );
+        rope.unpinParticle(particleIndex);
+      } else {
+        const targetIdx = store.dropTargetIndex;
+        if (targetIdx >= 0) {
+          // Move bead to target position
+          design.moveBead(beadId, targetIdx);
+          rope.unpinParticle(particleIndex);
         } else {
+          // Just release — no reorder happened
           rope.unpinParticle(particleIndex);
         }
-      } else {
-        rope.unpinParticle(particleIndex);
+        design.selectBead(null);
       }
 
-      // Deselect after drag
-      useDesignStore.getState().selectBead(null);
-    }
-
-    dragRef.current = null;
-    useDragStore.getState().setDragging(false);
-    gl.domElement.style.cursor = "auto";
-  }, [rope, particleIndex, pointer, gl, beadId]);
+      dragRef.current = null;
+      useDragStore.getState().setDragging(false);
+      useDragStore.getState().setDraggedBeadId(null);
+      useDragStore.getState().setDropTargetIndex(-1);
+      gl.domElement.style.cursor = "auto";
+    },
+    [rope, particleIndex, pointer, gl, beadId],
+  );
 
   // ── Cursor feedback ─────────────────────────────────────────────────
   const onPointerOver = useCallback(() => {
@@ -155,7 +222,7 @@ export function BeadVisual({
     if (!dragRef.current) gl.domElement.style.cursor = "auto";
   }, [gl]);
 
-  // ── Per-frame: move mesh to Verlet position, handle drag ───────────
+  // ── Per-frame: drag tracking + drop target computation ──────────────
   useFrame(() => {
     const group = groupRef.current;
     if (!group) return;
@@ -176,7 +243,16 @@ export function BeadVisual({
       if (_raycaster.ray.intersectPlane(_plane, _intersection)) {
         rope.pinParticle(particleIndex, _intersection);
 
-        // Record history for velocity
+        // Compute drop target index
+        const targetIdx = computeDropTargetIndex(
+          _intersection,
+          beadId,
+          rope,
+          dragRef.current.startX,
+        );
+        useDragStore.getState().setDropTargetIndex(targetIdx);
+
+        // Record history for velocity (in case of cancel/no reorder)
         const now = performance.now();
         dragRef.current.history.push({
           pos: _intersection.clone(),

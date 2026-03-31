@@ -32,6 +32,9 @@ export interface DesignState {
   resetDesign: () => void;
   loadFromCatalogIds: (ids: string[]) => void;
   clearDesign: () => void;
+  reorderBead: (idA: string, idB: string) => void;
+  /** Move a bead from its current position to targetIndex. */
+  moveBead: (beadId: string, targetIndex: number) => void;
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
@@ -92,5 +95,33 @@ export const useDesignStore = create<DesignState>((set, get) => ({
 
   clearDesign: () => {
     set({ beads: [], selectedBeadId: null });
+  },
+
+  reorderBead: (idA: string, idB: string) => {
+    set((state) => {
+      const idxA = state.beads.findIndex((b) => b.id === idA);
+      const idxB = state.beads.findIndex((b) => b.id === idB);
+      if (idxA < 0 || idxB < 0) return state;
+
+      const newBeads = [...state.beads];
+      [newBeads[idxA], newBeads[idxB]] = [newBeads[idxB], newBeads[idxA]];
+      return { beads: newBeads };
+    });
+  },
+
+  moveBead: (beadId: string, targetIndex: number) => {
+    set((state) => {
+      const fromIdx = state.beads.findIndex((b) => b.id === beadId);
+      if (fromIdx < 0) return state;
+      if (targetIndex < 0 || targetIndex >= state.beads.length) return state;
+      if (fromIdx === targetIndex) return state;
+
+      const newBeads = [...state.beads];
+      const [removed] = newBeads.splice(fromIdx, 1);
+      // Adjust target index after removal
+      const insertAt = fromIdx < targetIndex ? targetIndex - 1 : targetIndex;
+      newBeads.splice(insertAt, 0, removed);
+      return { beads: newBeads };
+    });
   },
 }));
