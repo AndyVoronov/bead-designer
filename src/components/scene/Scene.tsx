@@ -1,27 +1,17 @@
 /**
- * Performance Baseline (S02/T03):
- * - Device: Galaxy S24 emulation (360×780, Playwright), Desktop Edge (1280×720)
- * - Beads: 20+
- * - FPS: 60 (mobile emulation, no CPU throttle), 60 (desktop)
- * - Mitigations applied: none (optimizations sufficient)
- * - Sphere segments: 24 (down from 32)
- * - Thread curve points: 20 (down from 32)
- * - ContactShadows resolution: 256 (down from 512)
+ * 3D scene for the bead designer.
  *
- * Note: CPU throttling (4× slowdown) is a Chrome DevTools-only feature not available
- * via Playwright. Desktop + mobile emulation at native clock both sustain 60 FPS with
- * 20+ beads, providing substantial headroom above the 30 FPS target.
+ * Physics: Verlet rope simulation (no Rapier/RigidBody).
+ * The BeadChain component owns the simulation and runs it in useFrame.
  */
 "use client";
 
 import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Physics } from "@react-three/rapier";
 import {
   OrbitControls,
   Environment,
   ContactShadows,
-  Stats,
 } from "@react-three/drei";
 import { BeadChain } from "./BeadChain";
 import AdaptiveRenderer from "./AdaptiveRenderer";
@@ -38,11 +28,7 @@ export interface SceneProps {
 
 /**
  * OrbitControls wrapper that reads the shared drag flag and disables
- * orbit rotation while a bead is being dragged. This prevents the scene
- * from rotating simultaneously with the bead drag gesture on touch devices.
- *
- * Uses the Zustand hook so React re-renders this component when the flag
- * changes — OrbitControls picks up the new `enabled` prop immediately.
+ * orbit rotation while a bead is being dragged.
  */
 function DragAwareOrbitControls() {
   const isDragging = useDragStore((s) => s.isDragging);
@@ -59,7 +45,7 @@ function DragAwareOrbitControls() {
 }
 
 /**
- * Root 3D scene: Canvas → Physics → BeadChain → ThreadLine.
+ * Root 3D scene: Canvas → BeadChain → ThreadLine.
  * SSR-safe (loaded via SceneLoader with dynamic ssr:false).
  */
 export default function Scene({ beads, selectedBeadId }: SceneProps) {
@@ -68,7 +54,7 @@ export default function Scene({ beads, selectedBeadId }: SceneProps) {
       camera={{ position: [0, 1, 7], fov: 50 }}
       shadows
       onPointerMissed={() => useDesignStore.getState().selectBead(null)}
-      style={{ background: "linear-gradient(180deg, #f0f4f8 0%, #d9e2ec 100%)" }}
+      style={{ background: "linear-gradient(180deg, #f0f4f8 0%, #d9e2ec 100%" }}
     >
       {/* Soft gradient background */}
       <color attach="background" args={["#eef2f6"]} />
@@ -92,12 +78,14 @@ export default function Scene({ beads, selectedBeadId }: SceneProps) {
       <Suspense fallback={null}>
         <Environment preset="studio" />
 
-        {/* Physics world: gravity tuned for snappy feel (Vercel pattern) */}
-        <Physics gravity={[0, -40, 0]}>
-          <BeadChain beads={beads} anchorPosition={[0, 3, 0]} selectedBeadId={selectedBeadId} />
-        </Physics>
+        {/* Bead chain with Verlet rope physics */}
+        <BeadChain
+          beads={beads}
+          anchorPosition={[0, 3, 0]}
+          selectedBeadId={selectedBeadId}
+        />
 
-        {/* Soft ground shadow — resolution 256 for perf (default 512) */}
+        {/* Soft ground shadow */}
         <ContactShadows
           position={[0, -3, 0]}
           opacity={0.4}
@@ -109,9 +97,6 @@ export default function Scene({ beads, selectedBeadId }: SceneProps) {
       </Suspense>
 
       <DragAwareOrbitControls />
-
-      {/* FPS overlay — visible in dev only */}
-      <Stats />
     </Canvas>
   );
 }

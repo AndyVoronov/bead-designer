@@ -4,7 +4,7 @@ import { useRef, useMemo } from "react";
 import { useFrame, useThree, extend } from "@react-three/fiber";
 import { MeshLineGeometry, MeshLineMaterial } from "meshline";
 import * as THREE from "three";
-import type { RapierRigidBody } from "@react-three/rapier";
+import type { VerletRope } from "@/lib/verlet/VerletRope";
 
 // Register meshline classes with R3F's renderer
 extend({ MeshLineGeometry, MeshLineMaterial });
@@ -17,7 +17,6 @@ declare module "@react-three/fiber" {
       ref?: React.Ref<MeshLineGeometry>;
       args?: ConstructorParameters<typeof MeshLineGeometry>;
     };
-    // MeshLineMaterial extends ShaderMaterial with custom props (color, lineWidth, resolution, etc.)
     meshLineMaterial: {
       ref?: React.Ref<MeshLineMaterial>;
       color?: string | number | THREE.Color;
@@ -41,86 +40,81 @@ declare module "@react-three/fiber" {
 }
 
 export interface ThreadLineProps {
-  /** World-space position of the fixed anchor (first point on the curve). */
-  anchorPosition: [number, number, number];
-  /** Ref to the anchor's RapierRigidBody (for reading live position). */
-  anchorRef: React.RefObject<RapierRigidBody | null>;
-  /** Stable ref objects for each bead, indexed by position. */
-  beadRefs: React.RefObject<RapierRigidBody | null>[];
-  /** Number of beads — geometry update is skipped until all refs are populated. */
-  beadCount: number;
+  /** The Verlet rope instance — positions come from its particles. */
+  rope: VerletRope;
   /** Thread colour. */
   color: string;
+  /** Number of beads — used to skip rendering if rope isn't ready yet. */
+  beadCount: number;
   /** MeshLine width in world units (default 0.015). */
   lineWidth?: number;
 }
 
-// Reusable vectors to avoid GC pressure in useFrame
-const _v = new THREE.Vector3();
+// Reusable curve and points array to avoid allocation every frame
+const _curvePoints: THREE.Vector3[] = [];
+for (let i = 0; i < 50; i++) {
+  _curvePoints.push(new THREE.Vector3());
+}
+let _curve: THREE.CatmullRomCurve3 | null = null;
+let _curvePointCount = 0;
+
+function getCurve(count: number): THREE.CatmullRomCurve3 {
+  if (!_curve || _curvePointCount !== count) {
+    _curve = new THREE.CatmullRomCurve3(
+      _curvePoints.slice(0, count),
+      false,
+      "catmullrom",
+      0.5,
+    );
+    _curvePointCount = count;
+  }
+  return _curve;
+}
 
 /**
- * Renders a smooth MeshLine curve that passes through the anchor and every bead.
- * Updated every frame from Rapier body translation positions.
+ * Renders a smooth MeshLine curve that passes through all rope particles
+ * (anchor → bead0 → bead1 → …).
+ *
+ * Updated every frame from VerletRope particle positions.
  */
 export function ThreadLine({
-  anchorPosition,
-  anchorRef,
-  beadRefs,
-  beadCount,
+  rope,
   color,
+  beadCount,
   lineWidth = 0.015,
 }: ThreadLineProps) {
   const geoRef = useRef<MeshLineGeometry>(null);
-  const matRef = useRef<MeshLineMaterial>(null);
   const { size } = useThree();
 
-  // Keep resolution in sync with the canvas (needed by MeshLineMaterial shader)
   const resolution = useMemo(
     () => new THREE.Vector2(size.width, size.height),
     [size.width, size.height],
   );
 
-  // Reusable points array to avoid allocation every frame
-  const points = useMemo(() => [] as THREE.Vector3[], []);
-
   useFrame(() => {
     if (!geoRef.current) return;
+    if (rope.particles.length < 2) return;
 
-    // Wait until every bead ref is populated
-    if (beadRefs.length < beadCount) return;
-    for (let i = 0; i < beadCount; i++) {
-      if (!beadRefs[i].current) return;
+    const count = Math.min(rope.particles.length, 50);
+
+    // Copy particle positions into reusable array
+    for (let i = 0; i < count; i++) {
+      _curvePoints[i].copy(rope.particles[i].position);
     }
 
-    // Build point list: anchor position → bead0 → bead1 → …
-    points.length = 0;
+    // Get curve (reuses or creates)
+    const curve = getCurve(count);
 
-    // Prefer live anchor position from physics (falls back to static prop)
-    const anchorBody = anchorRef.current;
-    if (anchorBody) {
-      const p = anchorBody.translation();
-      _v.set(p.x, p.y, p.z);
-    } else {
-      _v.set(anchorPosition[0], anchorPosition[1], anchorPosition[2]);
-    }
-    points.push(_v.clone());
-
-    for (let i = 0; i < beadCount; i++) {
-      const body = beadRefs[i].current!;
-      const p = body.translation();
-      points.push(new THREE.Vector3(p.x, p.y, p.z));
-    }
-
-    // CatmullRom spline through all points → smooth thread
-    const curve = new THREE.CatmullRomCurve3(points, false, "catmullrom", 0.5);
-    geoRef.current.setPoints(curve.getPoints(20));
+    // Sample the curve
+    const sampleCount = Math.min(count * 3, 48);
+    const pts = curve.getPoints(sampleCount);
+    geoRef.current.setPoints(pts);
   });
 
   return (
     <mesh>
       <meshLineGeometry ref={geoRef} />
       <meshLineMaterial
-        ref={matRef}
         color={color}
         lineWidth={lineWidth}
         resolution={resolution}

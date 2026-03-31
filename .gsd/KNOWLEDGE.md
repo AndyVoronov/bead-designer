@@ -72,3 +72,17 @@
 
 - **Next.js 16 replaced middleware.ts with proxy.ts**: The file `src/proxy.ts` handles what `src/middleware.ts` did in Next.js 14/15 — request interception, redirects, and response modification. If you create `middleware.ts`, it will be ignored or conflict with `proxy.ts`.
 - **Auth pattern in proxy.ts**: Check for a cookie on specific path prefixes. Return `NextResponse.redirect()` for page routes and `NextResponse.json({ error: "Unauthorized" }, { status: 401 })` for API routes. Whitelist auth endpoints (e.g., `/api/admin/auth`) so login attempts work without a cookie.
+
+## Next.js 16 Turbopack Standalone + External Modules
+
+- **Turbopack hashes external module names in server chunks**: When building with `output: 'standalone'`, Turbopack creates hashed references to external packages (e.g., `@prisma/client-2c3a283f134fdcb6`, `pg-587764f78a6c7a9c`) inside `.next/server/chunks/*.js`. These hashed names are NOT the actual package names in node_modules. **Fix**: create symlinks from hashed names to actual packages on the deployment target. Find the hashes with `grep -o 'prisma/client-[a-z0-9]*' .next/server/chunks/*.js | sort -u`. The hashes change on every rebuild, so this must be automated in the deploy script.
+- **Standalone output doesn't include hashed module entries**: The `.next/standalone/node_modules/` directory contains the actual packages (`@prisma/client`, `pg`) but NOT the hashed aliases that the server chunks reference. The `node_modules` from `npm install` also lacks these. Symlinks are the only solution.
+- **Deploy script must create symlinks**: After extracting the standalone output on the VPS, the deploy script must scan for hashed module references and create corresponding symlinks. Example: `cd node_modules/@prisma && ln -sf client client-2c3a283f134fdcb6`.
+
+## VPS Deployment from Windows
+
+- **rsync unavailable in Git Bash on Windows**: The deploy.sh script uses rsync for file transfer, but rsync is not bundled with Git Bash on Windows. **Fix**: use `tar czf | scp | tar xzf` instead. This is also faster for small projects since it avoids rsync's file-by-file comparison overhead.
+- **PostgreSQL port may not be 5432**: If another service (e.g., Docker) occupies port 5432 during PostgreSQL installation, the auto-installer selects a different port (e.g., 5433). Always verify with `pg_lsclusters` and `SELECT inet_server_port()` from psql.
+- **PM2 startup persistence**: After deploying, run `pm2 save` and `pm2 startup` to ensure the process survives VPS reboots. Without this, PM2 forgets the process list on restart.
+- **prisma.config.ts must be deployed**: Prisma 7 uses prisma.config.ts (not schema.prisma) for the datasource URL. Deploying schema.prisma alone causes "must start with postgresql://" errors on `prisma db push`.
+- **Seed script may need src/ directory**: If `prisma/seed.ts` imports from project source files (e.g., `src/data/catalogBeads.ts`), those source files must also be deployed to the VPS.

@@ -15,17 +15,6 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: partial — S03 delivers: add bead from catalog (append), remove selected bead via toolbar, reset chain to defaults, tap-to-select in 3D (200ms/0.05 NDC threshold), golden wireframe highlight, deselect on empty-space click, drag beads with kinematic physics, 40-bead max enforcement. EditorCanvas layout with glass-morphism toolbar (Каталог/Удалить/Сброс). Global Zustand useDesignStore as single source of truth. Still missing: bead reorder (перетаскивание для смены порядка) — deferred.
 - Notes: Добавление бусины → создаётся RigidBody с rope joint к соседней. Удаление → разрыв joint, перерасчёт цепи. Перетаскивание → temporary kinematic body. Reorder not yet implemented.
 
-### R010 — Приложение развёрнуто и доступно по URL на VPS reg.ru. Production-сборка, HTTPS, автозапуск.
-- Class: constraint
-- Status: active
-- Description: Приложение развёрнуто и доступно по URL на VPS reg.ru. Production-сборка, HTTPS, автозапуск.
-- Why it matters: Продукт должен быть доступен клиентам в интернете.
-- Source: user
-- Primary owning slice: M001/S07
-- Supporting slices: none
-- Validation: unmapped
-- Notes: VPS provisioned (Node.js 20, PostgreSQL 16, Nginx, PM2) at 89.111.175.54. Domain thekidsdream.ru DNS configured. PM2 process online. Static pages return 200. API routes return 500 due to Prisma client hash mismatch (fix: symlink node_modules/.prisma/client to @prisma/client-2c3a283f134fdcb6 on VPS). SSL not yet configured (run certbot after fixing API). See T03-SUMMARY.md for full VPS credentials and fix instructions.
-
 ### R011 — Визуально привлекательный интерфейс — мягкие цвета, продуманная типографика, плавные анимации, приятные переходы. 3D-сцена с красивым освещением и тенями. Всё должно выглядеть «потрясающе».
 - Class: differentiator
 - Status: active
@@ -34,7 +23,7 @@ This file is the explicit capability and coverage contract for the project.
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: M001/S02, M001/S03, M001/S07
-- Validation: partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay. S02 adds PBR materials per BeadType (wood/silicone/knit/plastic with distinct roughness/metalness/bump), procedural bump textures for wood and knit, adaptive rendering with PerformanceMonitor. S03 adds glass-morphism toolbar (bg-white/70 backdrop-blur-md), smooth slide animations (translate-y transition), golden wireframe highlight on selection, inline SVG icons, Russian UI copy, scale-on-press tactile feedback (active:scale-95), PacifierClip metallic silver 3D mesh. Still needs: real PNG textures from user photos (S06), production post-processing (S07).
+- Validation: partial — S01-S03 deliver visual foundation (studio lighting, PBR materials, glass-morphism toolbar, animations). S07 proves production rendering on VPS but hasn't added post-processing enhancements. Real PNG textures from user photos still deferred. Production post-processing deferred.
 - Notes: S01 establishes visual foundation. S02 adds PBR materials. S03 adds mobile UI design. S07 adds production polish.
 
 ## Validated
@@ -127,6 +116,17 @@ This file is the explicit capability and coverage contract for the project.
 - Validation: S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top.
 - Notes: Клипса — фиксированный элемент, не бусина. Нить — визуальная компонента (rope joint). Дальше добавляются другие типы. productType "pacifier-holder" stored in useDesignStore.
 
+### R010 — Приложение развёрнуто и доступно по URL на VPS reg.ru. Production-сборка, HTTPS, автозапуск.
+- Class: constraint
+- Status: validated
+- Description: Приложение развёрнуто и доступно по URL на VPS reg.ru. Production-сборка, HTTPS, автозапуск.
+- Why it matters: Продукт должен быть доступен клиентам в интернете.
+- Source: user
+- Primary owning slice: M001/S07
+- Supporting slices: none
+- Validation: S07 UAT: VPS provisioned at 89.111.175.54 with Node.js 20.20.2, PostgreSQL 16, Nginx, PM2. PM2 process "bead-designer" online on port 3000. Nginx reverse proxy on port 80. All 16 routes respond correctly: public pages 200 (/, /editor, /design/[code]), admin pages 307 redirect to login (unauthenticated), admin login 200, public APIs 200 (/api/templates, /api/orders), admin APIs 401 without cookie, admin auth flow works (wrong password 401, correct password 200, subsequent admin API calls 200). Database seeded with 8 templates. PostgreSQL via PrismaPg adapter. Production build succeeds with standalone output. Turbopack standalone hashed module resolution handled via symlinks (@prisma/client-2c3a283f134fdcb6, pg-587764f78a6c7a9c). Deploy infrastructure: deploy.sh, setup-vps.sh, nginx.conf, ecosystem.config.cjs, smoke-test.sh, DEPLOY.md. SSL/HTTPS not yet configured (HTTP only, certbot pending).
+- Notes: VPS provisioned (Node.js 20, PostgreSQL 16, Nginx, PM2) at 89.111.175.54. Domain thekidsdream.ru DNS configured. PM2 process online. Static pages return 200. API routes return 500 due to Prisma client hash mismatch (fix: symlink node_modules/.prisma/client to @prisma/client-2c3a283f134fdcb6 on VPS). SSL not yet configured (run certbot after fixing API). See T03-SUMMARY.md for full VPS credentials and fix instructions.
+
 ## Deferred
 
 ### R012 — Другие виды игрушек из бусин помимо держателя для соски. Добавляются по одному после запуска.
@@ -210,8 +210,8 @@ This file is the explicit capability and coverage contract for the project.
 | R007 | integration | validated | M001/S05 | M001/S06 | S05 UAT: Order model in Prisma schema with migration (id, designCode, designState, status, beadCount, createdAt). POST /api/orders creates order with 201, validates designCode+beadCount (400 on missing), try/catch with console.error (500 on DB errors). GET /api/orders returns all orders ordered by createdAt desc. generateTelegramLink(designCode, beadCount) pure function produces `https://t.me/VoronovAndrey?text=...` with encodeURIComponent for Russian text. 7 unit tests pass (URL format, encoding, edge cases). "Заказать" CTA button in EditorToolbar — full-width green (#10b981) button, disabled when beads.length===0, loading state "Отправка..." with disabled during fetch, error feedback for 3s on failure. Full browser flow verified: add 3+ beads → click "Заказать" → GET /api/orders returns new order with status "new" and correct designCode/beadCount → Telegram opens with pre-filled Russian message containing greeting, design code, and bead count. Mobile viewport (390×844) toolbar layout works without overflow. 64 tests pass, TypeScript clean, production build succeeds. |
 | R008 | admin/support | validated | M001/S06 | none | S06 UAT: Password-protected admin panel at /admin via proxy.ts cookie guard (admin_token httpOnly cookie). Login page at /admin/login validates ADMIN_PASSWORD env var. Admin layout with sidebar navigation (Шаблоны/Заказы/Бусины) and logout. Template management: list all (approved + unapproved), create (name + designCode), approve/unapprove toggle, delete with confirmation. Order management: list all orders, status badges (new/processing/completed), status dropdown change, promote-to-template ("Сделать шаблоном") creating approved template from order's designCode. Bead catalog viewer: 100 beads from CATALOG_BEADS static array with material filter dropdown and name search. Full browser flow verified: login redirect, wrong password error, correct password → cookie set → templates page, all 3 pages functional, logout clears session, unauthenticated access → redirect to login. 64 tests pass, zero TS errors, production build succeeds with all 16 routes. |
 | R009 | core-capability | validated | M001/S03 | M001/S04 | S03 UAT: PacifierClip 3D component at chain anchor — metallic silver torus ring + angled cylinder arm replacing plain gray sphere. Fixed RigidBody at anchor position with BallCollider for physics. Build passes, visible in browser screenshots at chain top. |
-| R010 | constraint | active | M001/S07 | none | unmapped |
-| R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | partial — S01 delivers studio Environment preset, ContactShadows, two-directional-light setup (key + fill), gradient background with fog, polished UI overlay. S02 adds PBR materials per BeadType (wood/silicone/knit/plastic with distinct roughness/metalness/bump), procedural bump textures for wood and knit, adaptive rendering with PerformanceMonitor. S03 adds glass-morphism toolbar (bg-white/70 backdrop-blur-md), smooth slide animations (translate-y transition), golden wireframe highlight on selection, inline SVG icons, Russian UI copy, scale-on-press tactile feedback (active:scale-95), PacifierClip metallic silver 3D mesh. Still needs: real PNG textures from user photos (S06), production post-processing (S07). |
+| R010 | constraint | validated | M001/S07 | none | S07 UAT: VPS provisioned at 89.111.175.54 with Node.js 20.20.2, PostgreSQL 16, Nginx, PM2. PM2 process "bead-designer" online on port 3000. Nginx reverse proxy on port 80. All 16 routes respond correctly: public pages 200 (/, /editor, /design/[code]), admin pages 307 redirect to login (unauthenticated), admin login 200, public APIs 200 (/api/templates, /api/orders), admin APIs 401 without cookie, admin auth flow works (wrong password 401, correct password 200, subsequent admin API calls 200). Database seeded with 8 templates. PostgreSQL via PrismaPg adapter. Production build succeeds with standalone output. Turbopack standalone hashed module resolution handled via symlinks (@prisma/client-2c3a283f134fdcb6, pg-587764f78a6c7a9c). Deploy infrastructure: deploy.sh, setup-vps.sh, nginx.conf, ecosystem.config.cjs, smoke-test.sh, DEPLOY.md. SSL/HTTPS not yet configured (HTTP only, certbot pending). |
+| R011 | differentiator | active | M001/S01 | M001/S02, M001/S03, M001/S07 | partial — S01-S03 deliver visual foundation (studio lighting, PBR materials, glass-morphism toolbar, animations). S07 proves production rendering on VPS but hasn't added post-processing enhancements. Real PNG textures from user photos still deferred. Production post-processing deferred. |
 | R012 | core-capability | deferred | none | none | unmapped |
 | R013 | integration | deferred | none | none | unmapped |
 | R014 | compliance/security | deferred | none | none | unmapped |
@@ -221,7 +221,7 @@ This file is the explicit capability and coverage contract for the project.
 
 ## Coverage Summary
 
-- Active requirements: 3
-- Mapped to slices: 3
-- Validated: 8 (R001, R002, R003, R004, R006, R007, R008, R009)
+- Active requirements: 2
+- Mapped to slices: 2
+- Validated: 9 (R001, R002, R003, R004, R006, R007, R008, R009, R010)
 - Unmapped active requirements: 0

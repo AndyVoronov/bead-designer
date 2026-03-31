@@ -10,7 +10,7 @@
 
 ## Current State
 
-S06 completed: Админка. Password-protected admin panel at /admin with proxy.ts cookie guard. Admin layout with sidebar (Шаблоны, Заказы, Бусины). Template management: list all (approved + unapproved), create, approve/unapprove, delete. Order management: list, status badges, status change, promote-to-template ("Сделать шаблоном"). Bead catalog viewer: 100 beads from static array with material filter + search. 6 admin API routes under /api/admin/* (separate from public /api/*). R006 and R008 validated. 64 tests pass, build clean with 16 routes. S07 (integration + deploy) remaining.
+S07 completed: Интеграция + деплой. Application deployed to VPS at http://89.111.175.54 with PostgreSQL 16, PM2, Nginx reverse proxy. All 16 routes responding correctly (public pages 200, admin auth guard 307/401, APIs 200/401). Database seeded with 8 templates. Admin panel functional with password auth. R010 validated. SSL/HTTPS pending (certbot not yet run). Real mobile FPS testing deferred (requires HTTPS). Deploy infrastructure: deploy.sh, setup-vps.sh, nginx.conf, ecosystem.config.cjs, smoke-test.sh, DEPLOY.md.
 
 ## Architecture / Key Patterns
 
@@ -20,7 +20,7 @@ S06 completed: Админка. Password-protected admin panel at /admin with pro
 - **Rendering:** Адаптивный рендеринг (PerformanceMonitor, dynamic DPR) для мобильных
 - **Materials:** PBR-материалы из PNG-текстур (дерево, силикон, вязаное)
 - **Post-processing:** realism-effects (SSGI, HBAO) для красивого освещения
-- **Database:** SQLite (LibSql) for local dev + Prisma ORM — PostgreSQL planned for production
+- **Database:** PostgreSQL + Prisma ORM (migrated from SQLite in S07)
 - **Styling:** Tailwind CSS, mobile-first
 - **State:** Zustand для 3D-состояния, React Query для серверного состояния
 - **Deployment:** Node.js на VPS reg.ru
@@ -31,4 +31,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S06 complete, S07 remaining)
+- [x] M001: 3D-конструктор игрушек из бусин — Полный цикл: 3D-редактор с физикой, каталог, шаблоны, заказы, админка, деплой (S01-S07 complete)
