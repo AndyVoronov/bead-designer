@@ -70,11 +70,14 @@ function computeChainLayout(
 
 export interface BeadChainProps {
   beads: BeadState[];
+  /** Center of the chain — both clips are placed symmetrically around this point. */
   anchorPosition: [number, number, number];
   threadColor?: string;
   selectedBeadId?: string | null;
   /** Exposed for DragControls — allows pinning/unpinning particles. */
   ropeRef?: React.RefObject<VerletRope | null>;
+  /** Callback with current chain center for OrbitControls tracking. */
+  onCenterChange?: (center: [number, number, number]) => void;
 }
 
 /**
@@ -97,6 +100,7 @@ export function BeadChain({
   threadColor = "#8B4513",
   selectedBeadId,
   ropeRef,
+  onCenterChange,
 }: BeadChainProps) {
   const [ax, ay, az] = anchorPosition;
 
@@ -113,7 +117,7 @@ export function BeadChain({
       constraintIterations: 10,
     });
 
-    // Left anchor at anchorPosition (will be repositioned on first sync)
+    // Left anchor starts at the center point (will be repositioned on first sync)
     r.addParticle(
       new THREE.Vector3(ax, ay, az),
       ANCHOR_RADIUS,
@@ -131,7 +135,7 @@ export function BeadChain({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ax, ay, az]);
 
-  // ── Sync beads + right anchor ──────────────────────────────────────
+  // ── Sync beads + reposition anchors symmetrically ────────────────────
   useEffect(() => {
     const r = rope.current;
     if (!r) return;
@@ -142,9 +146,11 @@ export function BeadChain({
     // Detect first sync (rope has only the left anchor)
     const isFirstSync = r.particles.length <= 1;
 
+    // Compute ideal layout centered around (ax, ay, az)
+    const layout = computeChainLayout(beads, ax, ay, az);
+
     if (isFirstSync) {
       // ── First sync: lay out everything at ideal positions ────────
-      const layout = computeChainLayout(beads, ax, ay, az);
 
       // Reposition left anchor to ideal spot
       r.particles[0].position.set(...layout.leftPos);
@@ -171,6 +177,7 @@ export function BeadChain({
       );
 
       prevBeadIdsRef.current = nextIds;
+      onCenterChange?.([ax, ay, az]);
       return;
     }
 
@@ -184,7 +191,12 @@ export function BeadChain({
       r.particles.splice(rightIdx, 1);
     }
 
-    // 2. Detect what changed
+    // 2. Reposition left anchor symmetrically
+    const leftAnchor = r.particles[0];
+    leftAnchor.position.set(...layout.leftPos);
+    leftAnchor.previousPosition.set(...layout.leftPos);
+
+    // 3. Detect what changed
     const nextSet = new Set(nextIds);
     const sameSet =
       prevIds.length === nextIds.length &&
@@ -203,8 +215,6 @@ export function BeadChain({
           r.particles[i].radius = bead.radius;
         }
       }
-      // Rebuild constraints with touching lengths after reorder
-      // (radii changed between adjacent pairs)
       r.rebuildConstraints(true);
     } else {
       // Remove beads (removeParticleByBeadId rebuilds constraints with closeGaps)
@@ -228,20 +238,27 @@ export function BeadChain({
         r.addParticle(newPos, bead.radius, bead.id, false, true);
       }
 
-      // Rebuild constraints from radii.
-      // closeGaps=true when beads were removed → solver pulls neighbors together.
-      // closeGaps=false otherwise → uses current distances to avoid teleporting.
+      // Rebuild constraints from radii
       r.rebuildConstraints(removed.length > 0);
+
+      // Reposition all beads to ideal centered layout (only for add/remove,
+      // not reorder — reorder preserves physics positions above)
+      for (let i = 0; i < beads.length; i++) {
+        const particleIdx = i + 1;
+        if (particleIdx < r.particles.length) {
+          const p = r.particles[particleIdx];
+          if (p.beadId !== "__anchor_right__") {
+            p.position.set(...layout.beadPositions[i]);
+            p.previousPosition.set(...layout.beadPositions[i]);
+          }
+        }
+      }
     }
 
-    // 4. Recompute ideal right anchor position and add it
-    const totalBeadWidth = beads.reduce((s, b) => s + 2 * b.radius, 0);
-    const totalWidth = 2 * ANCHOR_RADIUS + totalBeadWidth;
-    const idealRightX = ax + totalWidth / 2;
-
+    // 5. Add right anchor at symmetric position
     r.particles.push({
-      position: new THREE.Vector3(idealRightX, ay, az),
-      previousPosition: new THREE.Vector3(idealRightX, ay, az),
+      position: new THREE.Vector3(...layout.rightPos),
+      previousPosition: new THREE.Vector3(...layout.rightPos),
       acceleration: new THREE.Vector3(),
       pinned: true,
       mass: 1,
@@ -259,6 +276,7 @@ export function BeadChain({
     );
 
     prevBeadIdsRef.current = nextIds;
+    onCenterChange?.([ax, ay, az]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [beads, rope, ax, ay, az]);
 
@@ -342,6 +360,7 @@ export function BeadChain({
               highlighted={isHighlighted}
               particleIndex={i + 1}
               rope={r}
+              shape={bead.shape}
             />
           );
         })}

@@ -28,13 +28,19 @@ export interface SceneProps {
 
 /**
  * OrbitControls wrapper that reads the shared drag flag and disables
- * orbit rotation while a bead is being dragged.
+ * orbit rotation while a bead is being dragged. Target is set to the
+ * chain center so rotation pivots around the product midpoint.
  */
-function DragAwareOrbitControls() {
+function OrbitControlsWrapper({
+  target,
+}: {
+  target: [number, number, number];
+}) {
   const isDragging = useDragStore((s) => s.isDragging);
   return (
     <OrbitControls
       makeDefault
+      target={target}
       minPolarAngle={0}
       maxPolarAngle={Math.PI}
       minDistance={2}
@@ -49,9 +55,13 @@ function DragAwareOrbitControls() {
  * SSR-safe (loaded via SceneLoader with dynamic ssr:false).
  */
 export default function Scene({ beads, selectedBeadId }: SceneProps) {
+  // Chain center in world space — anchors spread symmetrically around this.
+  // Slightly above origin so the chain is nicely framed.
+  const chainCenter: [number, number, number] = [0, 0.5, 0];
+
   return (
     <Canvas
-      camera={{ position: [0, 1, 7], fov: 50 }}
+      camera={{ position: [0, 0.5, 7], fov: 50 }}
       shadows
       onPointerMissed={() => useDesignStore.getState().selectBead(null)}
       style={{ background: "linear-gradient(180deg, #f0f4f8 0%, #d9e2ec 100%" }}
@@ -81,7 +91,7 @@ export default function Scene({ beads, selectedBeadId }: SceneProps) {
         {/* Bead chain with Verlet rope physics */}
         <BeadChain
           beads={beads}
-          anchorPosition={[0, 3, 0]}
+          anchorPosition={chainCenter}
           selectedBeadId={selectedBeadId}
         />
 
@@ -96,7 +106,7 @@ export default function Scene({ beads, selectedBeadId }: SceneProps) {
         />
       </Suspense>
 
-      <DragAwareOrbitControls />
+      <OrbitControlsWrapper target={chainCenter} />
     </Canvas>
   );
 }

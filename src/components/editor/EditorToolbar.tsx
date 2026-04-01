@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useDesignStore } from "@/stores/useDesignStore";
 import { encodeDesign } from "@/lib/serialization";
 import { generateTelegramLink } from "@/lib/telegram";
+import { useAuth } from "@/lib/auth-provider";
 
 interface EditorToolbarProps {
   catalogOpen: boolean;
@@ -39,6 +40,53 @@ export function EditorToolbar({ catalogOpen, onToggleCatalog }: EditorToolbarPro
   }, [orderError]);
 
   const canShare = beads.some((b) => !!b.catalogBeadId);
+  const { user, requireAuth } = useAuth();
+
+  // ── Save design state ───────────────────────────────────
+  const [saveName, setSaveName] = useState("");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!saveSuccess) return;
+    const timer = setTimeout(() => setSaveSuccess(false), 2000);
+    return () => clearTimeout(timer);
+  }, [saveSuccess]);
+
+  const canSave = beads.length > 0;
+
+  const handleSaveClick = useCallback(() => {
+    if (!user) {
+      requireAuth(() => setShowSaveDialog(true));
+      return;
+    }
+    setShowSaveDialog(true);
+  }, [user, requireAuth]);
+
+  const handleSave = useCallback(async () => {
+    if (!canSave || saving) return;
+    const name = saveName.trim() || `Мой дизайн ${new Date().toLocaleDateString("ru-RU")}`;
+    setSaving(true);
+    try {
+      const code = encodeDesign(beads);
+      if (!code) return;
+      const res = await fetch("/api/designs/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, designCode: code, beadCount: beads.length }),
+      });
+      if (res.ok) {
+        setSaveSuccess(true);
+        setShowSaveDialog(false);
+        setSaveName("");
+      }
+    } catch (err) {
+      console.error("Failed to save design:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [beads, saveName, canSave, saving]);
 
   const handleShare = useCallback(async () => {
     if (!canShare) return;
@@ -173,8 +221,42 @@ export function EditorToolbar({ catalogOpen, onToggleCatalog }: EditorToolbarPro
         className="w-full py-2.5 text-sm font-semibold rounded-xl text-white transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-[0.98]"
         style={{ backgroundColor: isOrdering ? "#9ca3af" : "#10b981" }}
       >
-        {isOrdering ? "Отправка..." : orderError ? orderError : "🛒 Заказать"}
+        {isOrdering ? "Отправка..." : orderError ? orderError : "Заказать"}
       </button>
+
+      {/* ── Save dialog ─────────────────────────────────── */}
+      {showSaveDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowSaveDialog(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl p-5 w-full max-w-xs z-10">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Сохранить дизайн</h3>
+            <input
+              type="text"
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              placeholder="Название дизайна"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent mb-3"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSaveDialog(false)}
+                className="flex-1 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors cursor-pointer"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-2 text-sm font-medium rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {saving ? "Сохранение..." : "Сохранить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Bottom row: bead count + action buttons ──────── */}
       <div className="flex items-center justify-between">
@@ -199,6 +281,17 @@ export function EditorToolbar({ catalogOpen, onToggleCatalog }: EditorToolbarPro
           >
             <CatalogIcon open={catalogOpen} />
             <span>{catalogOpen ? "Закрыть" : "Каталог"}</span>
+          </button>
+
+          {/* Save / Сохранить */}
+          <button
+            onClick={handleSaveClick}
+            disabled={!canSave}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none active:scale-95"
+            aria-label="Сохранить дизайн"
+          >
+            {saveSuccess ? <CheckIcon /> : <SaveIcon />}
+            <span>{saveSuccess ? "Сохранено!" : "Сохранить"}</span>
           </button>
 
           {/* Share / Поделиться */}
@@ -373,6 +466,26 @@ function CheckIcon() {
       strokeLinejoin="round"
     >
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function SaveIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
     </svg>
   );
 }

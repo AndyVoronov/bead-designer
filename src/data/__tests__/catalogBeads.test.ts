@@ -9,7 +9,7 @@ describe("CATALOG_BEADS", () => {
   });
 
   it("each entry has all required fields", () => {
-    const validShapes: BeadShape[] = ["sphere", "disc", "star", "heart", "cylinder"];
+    const validShapes: BeadShape[] = ["sphere", "disc", "star", "heart", "cylinder", "oblate", "buckyball"];
     const validMaterials = ["wood", "silicone", "knit", "plastic"];
 
     for (const bead of CATALOG_BEADS) {

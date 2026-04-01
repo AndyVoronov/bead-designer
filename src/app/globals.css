@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@theme {
+  --font-nunito: var(--font-nunito);
+  --font-pacifico: var(--font-pacifico);
+}
+
 html {
   overflow: hidden;
   touch-action: none;
@@ -9,6 +14,11 @@ body {
   margin: 0;
   overflow: hidden;
   touch-action: none;
+  font-family: var(--font-nunito), "Nunito", sans-serif;
+}
+
+.font-hand {
+  font-family: var(--font-pacifico), "Pacifico", cursive;
 }
 
 .canvas-container {

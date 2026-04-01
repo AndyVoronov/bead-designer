@@ -116,6 +116,8 @@ export interface BeadVisualProps {
   rope: VerletRope;
   /** Geometry segment count (default: 24). */
   segments?: number;
+  /** Shape of the bead (default: "sphere"). */
+  shape?: string;
 }
 
 /**
@@ -131,6 +133,7 @@ export function BeadVisual({
   particleIndex,
   rope,
   segments = 24,
+  shape = "sphere",
 }: BeadVisualProps) {
   const groupRef = useRef<THREE.Group>(null);
   const { camera, pointer, gl } = useThree();
@@ -274,22 +277,41 @@ export function BeadVisual({
     [],
   );
 
+  const isOblate = shape === "oblate";
+  const isBuckyball = shape === "buckyball";
+
   return (
     <group ref={groupRef}>
       <mesh
         castShadow
+        scale={isOblate ? [1, 0.6, 1] : undefined}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerOver={onPointerOver}
         onPointerOut={onPointerOut}
       >
-        <sphereGeometry args={[radius, segments, segments]} />
-        <BeadMaterial type={beadType} color={color} />
+        {isBuckyball ? (
+          <dodecahedronGeometry args={[radius, 0]} />
+        ) : (
+          <sphereGeometry args={[radius, segments, segments]} />
+        )}
+        <BeadMaterial
+          type={beadType}
+          color={color}
+          roughness={isBuckyball ? 0.15 : undefined}
+          metalness={isBuckyball ? 0.35 : undefined}
+        />
       </mesh>
 
       {highlighted && (
-        <mesh scale={highlightScale}>
-          <sphereGeometry args={[radius, segments, segments]} />
+        <mesh
+          scale={isOblate ? [1.15, 1.15 * 0.6, 1.15] : highlightScale}
+        >
+          {isBuckyball ? (
+            <dodecahedronGeometry args={[radius, 0]} />
+          ) : (
+            <sphereGeometry args={[radius, segments, segments]} />
+          )}
           <meshStandardMaterial
             color="#FFD700"
             emissive="#FFD700"
