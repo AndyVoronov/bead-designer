@@ -1,7 +1,9 @@
 "use client";
 
-import { useAuth, requireAuth } from "@/lib/auth-provider";
-import { useState } from "react";
+import { useAuth } from "@/lib/auth-provider";
+import { useState, useEffect, useCallback } from "react";
+import { decodeDesign } from "@/lib/serialization";
+import { getCatalogBead } from "@/data/catalogBeads";
 import { SignOut } from "@/components/auth/SignOut";
 
 type Tab = "designs" | "favorites" | "reviews" | "orders" | "settings";
@@ -30,6 +32,15 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
         <div className="text-gray-500">Войдите, чтобы открыть личный кабинет</div>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("auth-required"))}
+          className="px-6 py-2.5 bg-rose-500 text-white rounded-xl font-medium hover:bg-rose-600 transition-colors cursor-pointer"
+        >
+          Войти
+        </button>
+        <a href="/" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+          ← На главную
+        </a>
       </div>
     );
   }
@@ -111,16 +122,42 @@ export default function ProfilePage() {
 // ── Tab placeholders ─────────────────────────────────────────────────────────
 
 function TabDesigns() {
-  const [designs, setDesigns] = useState<Array<{ id: number; name: string; beadCount: number; updatedAt: string }>>([]);
+  const [designs, setDesigns] = useState<Array<{ id: number; name: string; designCode: string; beadCount: number; updatedAt: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/designs/saved")
       .then((r) => r.json())
       .then(setDesigns)
       .catch(() => {})
       .finally(() => setLoading(false));
-  });
+  }, []);
+
+  const handleRename = useCallback(async () => {
+    if (renamingId === null || !renameValue.trim()) {
+      setRenamingId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/designs/saved/${renamingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: renameValue.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setDesigns((prev) =>
+          prev.map((d) => (d.id === renamingId ? { ...d, name: updated.name } : d))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to rename:", err);
+    } finally {
+      setRenamingId(null);
+    }
+  }, [renamingId, renameValue]);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -135,7 +172,52 @@ function TabDesigns() {
           key={d.id}
           className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
         >
-          <h3 className="font-medium text-gray-900">{d.name}</h3>
+          {renamingId === d.id ? (
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRename();
+                  if (e.key === "Escape") setRenamingId(null);
+                }}
+                className="flex-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                autoFocus
+              />
+              <button
+                onClick={handleRename}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition-colors cursor-pointer"
+                aria-label="Сохранить"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setRenamingId(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-200 text-gray-500 hover:bg-gray-300 transition-colors cursor-pointer"
+                aria-label="Отмена"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6L6 18" /><path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <h3 className="font-medium text-gray-900">{d.name}</h3>
+          )}
+          <div className="flex items-center gap-1 mt-1.5 min-h-[16px]">
+            {(() => {
+              try {
+                const design = decodeDesign(d.designCode);
+                return (design?.b ?? []).slice(0, 10).map((id, i) => {
+                  const bead = getCatalogBead(id);
+                  return <span key={i} className="block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: bead?.color ?? "#D1D5DB" }} />;
+                });
+              } catch { return null; }
+            })()}
+          </div>
           <p className="text-sm text-gray-500 mt-1">{d.beadCount} бусин</p>
           <p className="text-xs text-gray-400 mt-1">
             {new Date(d.updatedAt).toLocaleDateString("ru-RU")}
@@ -147,6 +229,12 @@ function TabDesigns() {
             >
               Открыть
             </a>
+            <button
+              onClick={() => { setRenamingId(d.id); setRenameValue(d.name); }}
+              className="text-sm text-gray-400 hover:text-blue-500"
+            >
+              Переименовать
+            </button>
             <button
               onClick={() => {
                 fetch(`/api/designs/saved/${d.id}`, { method: "DELETE" }).then(() =>
@@ -165,16 +253,25 @@ function TabDesigns() {
 }
 
 function TabFavorites() {
-  const [favorites, setFavorites] = useState<Array<{ id: number; template: { id: number; name: string; designCode: string; beadCount: number } }>>([]);
+  const [favorites, setFavorites] = useState<Array<{ id: number; templateId: number; template: { id: number; name: string; designCode: string; beadCount: number } }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/favorites")
       .then((r) => r.json())
       .then(setFavorites)
       .catch(() => {})
       .finally(() => setLoading(false));
-  });
+  }, []);
+
+  const handleUnfavorite = useCallback(async (templateId: number) => {
+    await fetch("/api/favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId }),
+    });
+    setFavorites((prev) => prev.filter((f) => f.templateId !== templateId));
+  }, []);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -187,16 +284,35 @@ function TabFavorites() {
       {favorites.map((f) => (
         <div
           key={f.id}
-          className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+          className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow relative"
         >
+          <div className="flex items-center gap-1 mb-2 min-h-[16px]">
+            {(() => {
+              try {
+                const design = decodeDesign(f.template.designCode);
+                return (design?.b ?? []).slice(0, 10).map((id, i) => {
+                  const bead = getCatalogBead(id);
+                  return <span key={i} className="block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: bead?.color ?? "#D1D5DB" }} />;
+                });
+              } catch { return null; }
+            })()}
+          </div>
           <h3 className="font-medium text-gray-900">{f.template.name}</h3>
           <p className="text-sm text-gray-500 mt-1">{f.template.beadCount} бусин</p>
-          <a
-            href={`/design/${f.template.designCode}`}
-            className="text-sm text-rose-600 hover:text-rose-700 font-medium mt-2 inline-block"
-          >
-            Посмотреть
-          </a>
+          <div className="flex gap-3 mt-2">
+            <a
+              href={`/design/${f.template.designCode}`}
+              className="text-sm text-rose-600 hover:text-rose-700 font-medium"
+            >
+              Посмотреть
+            </a>
+            <button
+              onClick={() => handleUnfavorite(f.templateId)}
+              className="text-sm text-gray-400 hover:text-red-500"
+            >
+              Убрать
+            </button>
+          </div>
         </div>
       ))}
     </div>
@@ -207,13 +323,13 @@ function TabReviews() {
   const [reviews, setReviews] = useState<Array<{ id: number; authorName: string; rating: number; text: string; isApproved: boolean; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/reviews/mine")
       .then((r) => r.json())
       .then(setReviews)
       .catch(() => {})
       .finally(() => setLoading(false));
-  });
+  }, []);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -263,13 +379,13 @@ function TabOrders() {
   const [orders, setOrders] = useState<Array<{ id: number; designCode: string; beadCount: number; status: string; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useState(() => {
+  useEffect(() => {
     fetch("/api/orders/mine")
       .then((r) => r.json())
       .then(setOrders)
       .catch(() => {})
       .finally(() => setLoading(false));
-  });
+  }, []);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -288,18 +404,39 @@ function TabOrders() {
       {orders.map((o) => {
         const status = statusLabels[o.status] || statusLabels.new;
         return (
-          <div key={o.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                Заказ #{o.id} · {o.beadCount} бусин
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {new Date(o.createdAt).toLocaleDateString("ru-RU")}
-              </p>
+          <div key={o.id} className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="flex items-center gap-1 mb-2 min-h-[16px]">
+              {(() => {
+                try {
+                  const design = decodeDesign(o.designCode);
+                  return (design?.b ?? []).slice(0, 10).map((id, i) => {
+                    const bead = getCatalogBead(id);
+                    return <span key={i} className="block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: bead?.color ?? "#D1D5DB" }} />;
+                  });
+                } catch { return null; }
+              })()}
             </div>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${status.color}`}>
-              {status.text}
-            </span>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Заказ #{o.id} · {o.beadCount} бусин
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {new Date(o.createdAt).toLocaleDateString("ru-RU")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/design/${o.designCode}`}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-medium"
+                >
+                  Открыть
+                </a>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${status.color}`}>
+                  {status.text}
+                </span>
+              </div>
+            </div>
           </div>
         );
       })}

@@ -1,45 +1,50 @@
 import NextAuth from "next-auth";
 import { prisma } from "@/lib/prisma";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type OAuth2Provider = any;
+
 // ── Custom Yandex provider (OAuth2) ──────────────────────────────────────────
-const Yandex = {
+const Yandex: OAuth2Provider = {
   id: "yandex",
   name: "Яндекс",
-  type: "oauth" as const,
+  type: "oauth",
   authorization: {
     url: "https://oauth.yandex.ru/authorize",
-    params: { response_type: "code" },
+    params: { response_type: "code", scope: "login:info login:email login:avatar" },
   },
   token: "https://oauth.yandex.ru/token",
-  userinfo: "https://login.yandex.ru/info",
+  userinfo: "https://login.yandex.ru/info?format=json",
+  checks: ["pkce"],
   clientId: process.env.AUTH_YANDEX_ID!,
   clientSecret: process.env.AUTH_YANDEX_SECRET!,
   profile(profile: Record<string, unknown>) {
     return {
       id: String(profile.id),
-      name: (profile.real_name as string) || (profile.display_name as string) || (profile.login as string),
+      name: (profile.display_name as string) || (profile.real_name as string) || (profile.login as string),
       email: (profile.default_email as string) || (profile.emails as string[] | undefined)?.[0],
-      image: profile.avatar_id
-        ? `https://avatars.yandex.net/get-yapic/${profile.avatar_id}/islands-middle`
+      image: !profile.is_avatar_empty && profile.default_avatar_id
+        ? `https://avatars.yandex.net/get-yapic/${profile.default_avatar_id}/islands-200`
         : null,
     };
   },
 };
 
 // ── Custom VK provider (OAuth2) ──────────────────────────────────────────────
-const VK = {
+const VK: OAuth2Provider = {
   id: "vkontakte",
   name: "ВКонтакте",
-  type: "oauth" as const,
+  type: "oauth",
   authorization: {
     url: "https://oauth.vk.com/authorize",
     params: { response_type: "code" },
   },
   token: "https://oauth.vk.com/access_token",
   userinfo: "https://api.vk.com/method/users.get",
+  checks: ["pkce"],
   clientId: process.env.AUTH_VK_ID!,
   clientSecret: process.env.AUTH_VK_SECRET!,
-  async profile(profileResponse: { response?: Array<{ id: number; first_name: string; last_name: string; photo_200?: string }> }, tokens: { access_token: string }) {
+  async profile(profileResponse: { response?: Array<{ id: number; first_name: string; last_name: string; photo_200?: string }> }) {
     // VK returns data in { response: [...] }
     const user = profileResponse.response?.[0];
     return {
@@ -50,7 +55,7 @@ const VK = {
     };
   },
   // VK API requires access_token and version as query params
-  async userinfoRequest({ tokens, client }: { tokens: { access_token: string }; client: { id: string; secret: string } }) {
+  async userinfoRequest({ tokens }: { tokens: { access_token?: string } }) {
     return {
       url: `https://api.vk.com/method/users.get?fields=photo_200&access_token=${tokens.access_token}&v=5.131`,
     };
@@ -61,7 +66,6 @@ const VK = {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [Yandex, VK],
   // No PrismaAdapter — we handle user/account creation manually via callbacks
-  // because SQLite doesn't support the full session model that @auth/prisma-adapter needs
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -80,14 +84,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       });
 
       if (existingAccount) {
-        // Update account token if changed
+        // Update account
         await prisma.account.update({
           where: { id: existingAccount.id },
           data: {
-            accessToken: account.access_token,
             accountId: user.name,
           },
         });
+        // Set the user ID from DB for JWT
+        user.id = String(existingAccount.userId);
         return true;
       }
 
@@ -102,10 +107,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               userId: existingUser.id,
               provider,
               providerId,
-              accessToken: account.access_token,
               accountId: user.name,
             },
           });
+          user.id = String(existingUser.id);
           return true;
         }
       }
@@ -120,7 +125,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             create: {
               provider,
               providerId,
-              accessToken: account.access_token,
               accountId: user.name,
             },
           },
@@ -132,11 +136,35 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
 
-    async jwt({ token, account, user }) {
-      // Initial sign in — attach user id to token
-      if (user) {
-        token.userId = user.id;
-        token.provider = account?.provider;
+    async jwt({ token, account, user, trigger, session }) {
+      // Handle session update (e.g. from useSession().update())
+      if (trigger === "update" && session) {
+        return token;
+      }
+
+      // Initial sign in — look up real DB userId by provider account
+      if (user && account) {
+        try {
+          const dbAccount = await prisma.account.findUnique({
+            where: {
+              provider_providerId: {
+                provider: account.provider,
+                providerId: account.providerAccountId,
+              },
+            },
+          });
+          if (dbAccount) {
+            token.userId = String(dbAccount.userId);
+          } else {
+            // Fallback: use user.id as-is (shouldn't normally happen)
+            token.userId = String(user.id);
+          }
+          token.provider = account.provider;
+          console.log("[jwt] sign-in: providerId=" + account.providerAccountId + " → userId=" + token.userId);
+        } catch (err) {
+          console.error("[jwt] failed to look up user:", err);
+          token.userId = String(user.id);
+        }
       }
 
       // Ensure userId is always a string
@@ -150,6 +178,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token.userId) {
         session.user.id = String(token.userId);
+        console.log("[session] userId:", session.user.id);
       }
       return session;
     },
@@ -173,12 +202,5 @@ declare module "next-auth" {
 
   interface User {
     id: string;
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    userId?: string | number;
-    provider?: string;
   }
 }

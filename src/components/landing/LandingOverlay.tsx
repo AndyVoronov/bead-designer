@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useScroll } from "@react-three/drei";
 import Link from "next/link";
 import {
@@ -22,9 +22,6 @@ import {
 } from "lucide-react";
 import { decodeDesign } from "@/lib/serialization";
 import { getCatalogBead } from "@/data/catalogBeads";
-import { useAuth } from "@/lib/auth-provider";
-
-/* ── Types ──────────────────────────────────────────────────────────────── */
 
 interface Template {
   id: string;
@@ -56,26 +53,90 @@ function Section({
 
 /* ── Profile button (in nav) ──────────────────────────────────────────── */
 
-function ProfileButton() {
-  const { user, loading } = useAuth();
+/* ── Profile button (in nav) ──────────────────────────────────────────── */
+// NOTE: This component renders inside R3F Canvas (not DOM tree),
+// so useAuth() doesn't work here. We fetch session directly.
 
-  if (loading) return null;
+function ProfileButton() {
+  const [user, setUser] = useState<{ id: string; name: string | null; email: string | null; image: string | null } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [csrfToken, setCsrfToken] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/csrf")
+      .then((res) => res.json())
+      .then((data) => setCsrfToken(data.csrfToken))
+      .catch(() => {});
+
+    fetch("/api/auth/session")
+      .then((res) => (res.ok ? res.json() : { user: null }))
+      .then((data) => setUser(data.user))
+      .catch(() => {});
+  }, []);
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   if (user) {
     return (
-      <Link
-        href="/profile"
-        className="flex items-center gap-1.5 text-rose-500 hover:text-rose-600 transition-colors"
-        title="Личный кабинет"
-      >
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-xs font-semibold overflow-hidden">
-          {user.image ? (
-            <img src={user.image} alt="" className="w-full h-full object-cover" />
-          ) : (
-            (user.name ?? "U").charAt(0).toUpperCase()
-          )}
-        </div>
-      </Link>
+      <div ref={menuRef} className="relative">
+        <Link
+          href="/profile"
+          className="flex items-center gap-1.5 text-rose-500 hover:text-rose-600 transition-colors"
+          title="Личный кабинет"
+        >
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-xs font-semibold overflow-hidden">
+            {user.image ? (
+              <img src={user.image} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (user.name ?? "U").charAt(0).toUpperCase()
+            )}
+          </div>
+        </Link>
+        <button
+          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+          className="ml-1 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+          aria-label="Меню"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
+            <a
+              href="/profile"
+              className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              Мой профиль
+            </a>
+            <form
+              action="/api/auth/signout"
+              method="POST"
+              style={{ display: "contents" }}
+            >
+              <input type="hidden" name="csrfToken" value={csrfToken} />
+              <button
+                type="submit"
+                className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                Выйти
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -228,6 +289,132 @@ const ReviewCard = ({ data }: { data: (typeof reviews)[0] }) => (
     </div>
   </div>
 );
+
+/* ── Review form ───────────────────────────────────────────────────────── */
+
+function ReviewForm() {
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((s) => setLoggedIn(!!s?.user?.id))
+      .catch(() => setLoggedIn(false));
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (rating === 0 || text.trim().length < 5) return;
+    setSubmitting(true);
+    setStatus("idle");
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating, text: text.trim() }),
+      });
+      if (res.ok) {
+        setStatus("success");
+        setRating(0);
+        setText("");
+      } else {
+        setStatus("error");
+      }
+    } catch {
+      setStatus("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="pointer-events-auto w-full max-w-lg mx-auto mt-12 px-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white p-6">
+        <h3 className="font-semibold text-gray-800 text-center mb-4">
+          Оставить свой отзыв
+        </h3>
+
+        {loggedIn === false && (
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500 mb-3">Войдите, чтобы оставить отзыв</p>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("auth-required"))}
+              className="px-4 py-2 bg-rose-500 text-white text-sm font-medium rounded-xl hover:bg-rose-600 transition-colors cursor-pointer"
+            >
+              Войти через Яндекс
+            </button>
+          </div>
+        )}
+
+        {loggedIn === true && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Star rating */}
+            <div className="flex justify-center gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  className="p-0.5 cursor-pointer bg-transparent border-none"
+                  aria-label={`${star} звезда`}
+                >
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill={(hoverRating || rating) >= star ? "#f59e0b" : "none"}
+                    stroke={(hoverRating || rating) >= star ? "#f59e0b" : "#d1d5db"}
+                    strokeWidth="2"
+                    className="transition-colors"
+                  >
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+
+            {/* Text */}
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Расскажите о вашем опыте..."
+              rows={3}
+              maxLength={1000}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-transparent placeholder:text-gray-400"
+            />
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={rating === 0 || text.trim().length < 5 || submitting}
+              className="w-full py-2.5 bg-rose-500 text-white font-medium rounded-xl text-sm hover:bg-rose-600 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
+            >
+              {submitting ? "Отправка..." : "Отправить отзыв"}
+            </button>
+
+            {status === "success" && (
+              <p className="text-center text-sm text-emerald-600">
+                Спасибо! Ваш отзыв отправлен и появится после модерации.
+              </p>
+            )}
+            {status === "error" && (
+              <p className="text-center text-sm text-red-500">
+                Ошибка отправки. Попробуйте ещё раз.
+              </p>
+            )}
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ── Main overlay ───────────────────────────────────────────────────────── */
 
@@ -494,6 +681,9 @@ export function LandingOverlay() {
               ))}
             </div>
           </div>
+
+          {/* Review form */}
+          <ReviewForm />
         </div>
       </Section>
 

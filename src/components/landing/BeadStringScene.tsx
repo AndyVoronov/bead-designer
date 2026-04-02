@@ -153,7 +153,7 @@ export function BeadStringScene({ isMobile }: { isMobile: boolean }) {
         color="#FFB6C1"
       />
 
-      {/* Floating bead string — Float disabled on mobile to keep beads in view */}
+      {/* Floating bead string */}
       {isMobile ? (
         <group>
           {/* Thread/rope */}
@@ -166,24 +166,16 @@ export function BeadStringScene({ isMobile }: { isMobile: boolean }) {
               opacity={0.5}
             />
           </mesh>
-          {/* Beads — always scale=1 on mobile for visibility */}
+          {/* Beads — scroll-linked scale animation on mobile too */}
           {SCENE_BEADS.map((bead, i) => (
-            <mesh
+            <Bead
               key={i}
               position={beadPositions[i]}
-              scale={bead.shape === "oblate" ? [bead.size * 0.85, bead.size * 0.85 * 0.6, bead.size * 0.85] : undefined}
-            >
-              {bead.shape === "buckyball" ? (
-                <dodecahedronGeometry args={[bead.size * 0.85, 0]} />
-              ) : (
-                <sphereGeometry args={[bead.size * 0.85, 32, 32]} />
-              )}
-              <meshStandardMaterial
-                color={bead.color}
-                roughness={bead.shape === "buckyball" ? 0.2 : 0.3}
-                metalness={bead.shape === "buckyball" ? 0.3 : 0.1}
-              />
-            </mesh>
+              color={bead.color}
+              size={bead.size * 0.85}
+              shape={bead.shape}
+              index={i}
+            />
           ))}
         </group>
       ) : (

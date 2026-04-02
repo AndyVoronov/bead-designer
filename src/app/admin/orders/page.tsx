@@ -9,6 +9,7 @@ interface Order {
   status: string;
   beadCount: number;
   createdAt: string;
+  user?: { id: number; name: string | null; email: string | null } | null;
 }
 
 const STATUS_BADGES: Record<string, { label: string; classes: string }> = {
@@ -143,6 +144,9 @@ export default function AdminOrdersPage() {
                   Дата
                 </th>
                 <th className="text-left py-3 px-2 font-medium text-gray-600">
+                  Клиент
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600">
                   Действия
                 </th>
               </tr>
@@ -176,6 +180,15 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="py-2 px-2 text-gray-500 text-xs">
                       {new Date(order.createdAt).toLocaleString("ru-RU")}
+                    </td>
+                    <td className="py-2 px-2 text-gray-600 text-xs">
+                      {order.user ? (
+                        <span title={order.user.email ?? ""}>
+                          {order.user.name || order.user.email || `User #${order.user.id}`}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Аноним</span>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       <div className="flex items-center gap-2">

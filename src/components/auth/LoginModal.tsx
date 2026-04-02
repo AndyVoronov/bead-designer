@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { signIn } from "next-auth/react";
 import { useAuth, notifyAuthChange } from "@/lib/auth-provider";
 
 /**
@@ -81,9 +82,11 @@ export function LoginModal() {
     setError(null);
   }, []);
 
-  const signIn = (provider: string) => {
+  const signInProvider = (provider: string) => {
     setError(null);
-    window.location.href = `/api/auth/signin/${provider}?callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+    signIn(provider, {
+      callbackUrl: window.location.pathname,
+    });
   };
 
   const signInTelegram = () => {
@@ -184,7 +187,7 @@ export function LoginModal() {
         <div className="flex flex-col gap-3">
           {/* Yandex */}
           <button
-            onClick={() => signIn("yandex")}
+            onClick={() => signInProvider("yandex")}
             className="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-[#FC3F1D] text-white font-medium hover:bg-[#e0360e] transition-colors cursor-pointer active:scale-[0.98]"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
@@ -206,7 +209,7 @@ export function LoginModal() {
 
           {/* VK */}
           <button
-            onClick={() => signIn("vkontakte")}
+            onClick={() => signInProvider("vkontakte")}
             className="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-[#0077FF] text-white font-medium hover:bg-[#0066dd] transition-colors cursor-pointer active:scale-[0.98]"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="white">

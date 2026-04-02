@@ -6,6 +6,7 @@ import { useState } from "react";
 const NAV_LINKS = [
   { href: "/admin/templates", label: "Шаблоны" },
   { href: "/admin/orders", label: "Заказы" },
+  { href: "/admin/reviews", label: "Отзывы" },
   { href: "/admin/beads", label: "Бусины" },
 ];
 

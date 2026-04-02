@@ -9,7 +9,11 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = Number(session.user.id);
+  const userId = parseInt(session.user.id, 10);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: "Invalid user id" }, { status: 401 });
+  }
+
   const designs = await prisma.savedDesign.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
@@ -18,14 +22,19 @@ export async function GET() {
   return NextResponse.json(designs);
 }
 
-/** POST /api/designs/save — save current design */
+/** POST /api/designs/saved — save current design */
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = Number(session.user.id);
+  const userId = parseInt(session.user.id, 10);
+  console.log("[saved-designs] POST userId from session:", session.user.id, "parsed:", userId);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: "Invalid user id" }, { status: 401 });
+  }
+
   const body = await request.json();
   const { name, designCode, beadCount } = body;
 
@@ -34,7 +43,12 @@ export async function POST(request: NextRequest) {
   }
 
   const design = await prisma.savedDesign.create({
-    data: { userId, name, designCode, beadCount },
+    data: {
+      name,
+      designCode,
+      beadCount: Number(beadCount),
+      user: { connect: { id: userId } },
+    },
   });
 
   return NextResponse.json(design, { status: 201 });
