@@ -11,6 +11,7 @@ interface Template {
   beadCount: number;
   isApproved: boolean;
   isUserSubmitted: boolean;
+  favoriteCount: number;
   createdAt: string;
 }
 
@@ -112,9 +113,11 @@ export default function TemplateBrowser() {
           {templates.map((t) => (
             <TemplateCard
               key={t.id}
+              id={t.id}
               name={t.name}
               designCode={t.designCode}
               beadCount={t.beadCount}
+              favoriteCount={t.favoriteCount ?? 0}
             />
           ))}
         </div>

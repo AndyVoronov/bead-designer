@@ -1,6 +1,6 @@
 export type BeadId = string;
 export type BeadType = "wood" | "silicone" | "knit" | "plastic";
-export type BeadShape = "sphere" | "disc" | "star" | "heart" | "cylinder";
+export type BeadShape = "sphere" | "disc" | "star" | "heart" | "cylinder" | "oblate" | "buckyball";
 
 export interface CatalogBead {
   id: string;
@@ -18,6 +18,7 @@ export interface BeadState {
   type: BeadType;
   radius: number;
   color: string;
+  shape?: BeadShape;
   catalogBeadId?: string;
 }
 

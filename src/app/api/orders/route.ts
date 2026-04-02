@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -13,12 +14,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Attach user if authenticated
+    const session = await auth();
+    const userId = session?.user?.id ? Number(session.user.id) : null;
+
     const order = await prisma.order.create({
       data: {
         designCode,
         designState: JSON.stringify({ designCode, beadCount }),
         status: "new",
         beadCount: Number(beadCount),
+        userId,
       },
     });
 

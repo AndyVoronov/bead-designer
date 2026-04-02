@@ -18,5 +18,6 @@ export function catalogBeadToBeadState(catalogBead: CatalogBead): BeadState {
     type: catalogBead.material,
     radius: catalogBead.size * 0.8,
     color: catalogBead.color,
+    shape: catalogBead.shape,
   };
 }

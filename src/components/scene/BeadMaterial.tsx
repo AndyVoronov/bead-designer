@@ -10,6 +10,8 @@ import { getBeadMaterialConfig } from "@/lib/beadMaterialConfig";
 export interface BeadMaterialProps {
   type: BeadType;
   color: string;
+  roughness?: number;
+  metalness?: number;
 }
 
 // ── Procedural bump texture ──────────────────────────────────────────────────
@@ -56,7 +58,7 @@ function createProceduralBumpTexture(): THREE.CanvasTexture {
  * from drei can replace the procedural bump — just pass a `textureUrl` prop
  * and load it with `<Suspense>` boundary in the parent.
  */
-export function BeadMaterial({ type, color }: BeadMaterialProps) {
+export function BeadMaterial({ type, color, roughness, metalness }: BeadMaterialProps) {
   const config = useMemo(() => getBeadMaterialConfig(type), [type]);
 
   // Create a reusable procedural bump texture for types that need it.
@@ -71,8 +73,8 @@ export function BeadMaterial({ type, color }: BeadMaterialProps) {
   return (
     <meshStandardMaterial
       color={color}
-      roughness={config.roughness}
-      metalness={config.metalness}
+      roughness={roughness ?? config.roughness}
+      metalness={metalness ?? config.metalness}
       envMapIntensity={config.envMapIntensity}
       bumpMap={bumpMap}
       bumpScale={config.bumpScale}

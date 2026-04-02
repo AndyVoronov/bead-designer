@@ -17,6 +17,8 @@ const SHAPE_LABELS: Record<BeadShape, string> = {
   star: "Звезда",
   heart: "Сердце",
   cylinder: "Цилиндр",
+  oblate: "Сплюснутый",
+  buckyball: "Фуллерен",
 };
 
 const MATERIAL_OPTIONS: { value: string; label: string }[] = [
