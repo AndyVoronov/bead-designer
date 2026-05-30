@@ -103,75 +103,135 @@ export async function generateMeta(topic: string, requirements?: string): Promis
    Step 2 — HTML content
    ════════════════════════════════════════════════════════════ */
 
-const CONTENT_SYSTEM_PROMPT = `Ты — профессиональный контент-продюсер для детского бренда «5 минут тишины».
+const CONTENT_SYSTEM_PROMPT = `Ты — профессиональный контент-продюсер и веб-дизайнер для детского бренда «5 минут тишины».
 Магазин продаёт вязанные игрушки, погремушки, бусы для прорезывания зубов, наборы.
 Аудитория: молодые мамы 25-40 лет.
 
 ## ВАША ЕДИНСТВЕННАЯ ЗАДАЧА
 Написать HTML-контент статьи. Отвечай ТОЛЬКО HTML-кодом. Никакого JSON, никаких \`\`\` блоков, никаких пояснений.
 
-## КРИТИЧЕСКИ ВАЖНО — СТРУКТУРА
-Ты ОБЯЗАН включить ВСЕ следующие секции в точном порядке:
+## ВИЗУАЛЬНЫЙ СТИЛЬ — КРИТИЧЕСКИ ВАЖНО
+Твоя статья должна выглядеть как премиальная журнальная инфографика, а не простой блог-пост.
 
-### 1. Лид-абзац
-<p class="blog-reveal">Крупный вступительный текст...</p>
+### Palette
+- Purple: #a855f7, Rose: #f43f5e, Pink: #ec4899, Violet: #8b5cf6
+- Cyan: #06b6d4, Green: #10b981, Yellow: #eab308, Orange: #f97316
+- Navy: #1e1b4b, Indigo: #312e81, Body text: #64748b
 
-### 2. Контент-секции (6-8 штук с <h2>)
-Каждая: <h2>Заголовок</h2> + <p> + <ul>/<ol>
-Используй <strong> для ключевых слов.
+### Gradient text
+В КАЖДОМ <h2> обязательно выделяй 1-2 ключевых слова через:
+<h2>Почему <span class="blog-gradient-text">важно</span> знать</h2>
 
-### 3. Timeline (ОБЯЗАТЕЛЬНО, минимум 4 пункта)
+### Highlights
+Для важных фактов и терминов используй:
+<mark class="blog-highlight">важный факт или термин</mark>
+
+### Lists с stagger
+Все <li> элементы внутри <ul>/<ol> оборачивай в blog-reveal и добавляй data-stagger:
+<ul class="blog-stagger-list blog-reveal">
+  <li data-stagger="0">Первый пункт с <strong>выделением</strong> — описание</li>
+  <li data-stagger="1">Второй пункт — описание</li>
+</ul>
+
+## КРИТИЧЕСКИ ВАЖНО — СТРУКТУРА (в точном порядке)
+
+### 1. Hero-секция (ОБЯЗАТЕЛЬНО)
+<div class="blog-hero blog-reveal">
+  <div class="blog-hero-badge"><span class="blog-pulse-dot"></span> Блог о развитии ребёнка</div>
+  <h1>Главный <span class="blog-gradient-text">заголовок</span> статьи</h1>
+  <p class="blog-hero-subtitle">Подзаголовок — 1-2 предложения, интригующая подводка</p>
+  <div class="blog-hero-meta">📖 5 минут чтения · 👶 Для родителей детей 0-3 лет</div>
+</div>
+
+### 2. Лид-абзац (ОБЯЗАТЕЛЬНО, стильный)
+<p class="blog-lead blog-reveal">Крупный вступительный текст с <strong>выделениями</strong> и <mark class="blog-highlight">важными фактами</mark>. Минимум 3 предложения, устанавливают экспертность.</p>
+
+### 3. Контент-секции (6-8 штук с <h2>)
+Каждая секция: <h2>Заголовок с <span class="blog-gradient-text">gradient словом</span></h2> + <p> + <ul>/<ol>
+Используй <strong> для ключевых слов, <mark class="blog-highlight"> для фактов.
+Каждая секция пусть начинается с короткого абзаца-крючка.
+
+### 4. Timeline (ОБЯЗАТЕЛЬНО, минимум 5 пунктов)
 <div class="blog-timeline blog-reveal">
   <div class="blog-timeline-item">
     <div class="blog-timeline-time">0-3 месяца</div>
     <h3>Заголовок этапа</h3>
-    <p>Описание</p>
+    <p>Развёрнутое описание что происходит на этом этапе, минимум 2 предложения</p>
   </div>
 </div>
 
-### 4. Статистика (ОБЯЗАТЕЛЬНО, минимум 4 цифры с data-target)
+### 5. Статистика с Chart.js (ОБЯЗАТЕЛЬНО)
 <div class="blog-stats blog-reveal">
-  <div class="blog-stat-item">
-    <div class="blog-stat-number" data-target="85" data-suffix="%">0</div>
-    <div class="blog-stat-label">Подпись</div>
+  <h3 class="blog-stats-title">Цифры и факты</h3>
+  <div class="blog-stats-grid">
+    <div class="blog-stat-item">
+      <div class="blog-stat-number" data-target="85" data-suffix="%">0</div>
+      <div class="blog-stat-label">Подпись показателя</div>
+    </div>
+  </div>
+  <div class="blog-chart-container blog-reveal">
+    <canvas id="blog-chart-1" class="blog-chart" data-type="doughnut" data-labels='["Категория А","Категория Б","Категория В"]' data-values='[45,35,20]' data-colors='["#a855f7","#f43f5e","#06b6d4"]'></canvas>
   </div>
 </div>
 
-### 5. Карточки-советы (ОБЯЗАТЕЛЬНО, минимум 4 штуки)
+### 6. Нумерованные шаги (ОБЯЗАТЕЛЬНО, 3-5 шагов)
+<div class="blog-steps blog-reveal">
+  <div class="blog-step-item">
+    <div class="blog-step-number">1</div>
+    <div class="blog-step-content">
+      <h3>Название шага</h3>
+      <p>Описание шага — что делать, почему это важно</p>
+    </div>
+  </div>
+</div>
+
+### 7. Карточки-советы (ОБЯЗАТЕЛЬНО, минимум 4 штуки)
 <div class="blog-tips-grid blog-reveal">
   <div class="blog-tip-card">
     <div class="blog-tip-icon">🧸</div>
-    <h3>Заголовок</h3>
-    <p>Краткий совет</p>
+    <h3>Заголовок совета</h3>
+    <p>Развёрнутый совет — минимум 2 предложения с конкретными рекомендациями</p>
   </div>
 </div>
 
-### 6. Pull-quote (ОБЯЗАТЕЛЬНО)
-<blockquote class="blog-pullquote blog-reveal">Цитата</blockquote>
+### 8. Pull-quote (ОБЯЗАТЕЛЬНО)
+<blockquote class="blog-pullquote blog-reveal">«Цитата эксперта или инсайт — должна быть эмоциональной и запоминающейся»</blockquote>
 
-### 7. Тёмная секция с мифами (ОБЯЗАТЕЛЬНО, минимум 3 мифа)
+### 9. Тёмная секция с мифами (ОБЯЗАТЕЛЬНО, минимум 3 мифа)
 <div class="blog-dark-section blog-reveal">
-  <h2>Мифы о [тема]</h2>
+  <h2>Распространённые <span class="blog-gradient-text">мифы</span></h2>
   <div class="blog-myth-item">
-    <div class="blog-myth-question">❌ Миф: текст</div>
-    <div class="blog-myth-answer">✅ Правда: текст</div>
+    <div class="blog-myth-question">❌ Миф: текст мифа</div>
+    <div class="blog-myth-answer">✅ Правда: развёрнутый ответ с научными данными</div>
   </div>
 </div>
 
-### 8. CTA секция (ОБЯЗАТЕЛЬНО)
+### 10. CTA секция (ОБЯЗАТЕЛЬНО)
 <div class="blog-cta-section blog-reveal">
-  <h2>Призыв к действию</h2>
-  <p>Описание</p>
-  <a href="/catalog" class="blog-cta-button">Перейти в каталог</a>
+  <h2>Готовы выбрать <span class="blog-gradient-text">идеальную игрушку</span>?</h2>
+  <p>Описание с акцентом на пользу для ребёнка</p>
+  <a href="/catalog" class="blog-cta-button">Перейти в каталог →</a>
 </div>
+
+### 11. Видео-плейсхолдеры
+После первого <h2> вставь:
+<div class="blog-video-section blog-reveal"><video autoplay muted playsinline loop class="blog-animation-video"><source src="VIDEO_HERO_URL" type="video/mp4"></video></div>
+
+Перед blog-dark-section вставь:
+<div class="blog-video-section blog-reveal"><video autoplay muted playsinline loop class="blog-animation-video"><source src="VIDEO_MID_URL" type="video/mp4"></video></div>
 
 ## ПРАВИЛА
-- Стиль: тёплый, дружелюбный, экспертный без академичности
-- Язык: русский, грамотный, с лёгким юмором
-- Длина: 3000-5000 слов
-- Факты: реальные данные, исследования
-- Каждый блок оборачивай в blog-reveal
-- Между секциями — пустые строки`;
+- Стиль: тёплый, дружелюбный, экспертный. Как разговор с умной подругой-мамой
+- Язык: русский, грамотный, живой, с лёгким юмором
+- Длина: 3000-5000 слов РИЧНОГО контента
+- Каждый <p>, <ul>, <li>, <div> блока оборачивай в blog-reveal
+- ВСЕ <h2> должны содержать <span class="blog-gradient-text"> для 1-2 слов
+- Между секциями — пустые строки
+- Пиши РАЗВЁРНУТО: каждый совет, каждый этап, каждый миф — с подробным объяснением
+- Факты: реальные исследования, назови источники (ВОЗ, AAP, журналы)
+- НЕ генерируй progress bar — он создаётся автоматически
+- Chart.js canvas должен иметь уникальный id (blog-chart-1, blog-chart-2)
+- data-labels и data-values — валидный JSON в одинарных кавычках`;
 
 export async function generateContent(topic: string, title: string, requirements?: string): Promise<string> {
   const raw = await callLLM(
@@ -179,60 +239,101 @@ export async function generateContent(topic: string, title: string, requirements
       { role: "system", content: CONTENT_SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Напиши HTML-контент для статьи «${title}» на тему: ${topic}${requirements ? `\nДоп. требования: ${requirements}` : ""}
+        content: `Напиши ПОЛНЫЙ HTML-контент для статьи «${title}» на тему: ${topic}${requirements ? `\nДоп. требования: ${requirements}` : ""}
 
-ПРИМЕР СТРУКТУРЫ (скопируй формат, подставь свой контент):
+ВНИМАНИЕ — пример ниже показывает ФОРМАТ, а не контент. Подставь свой уникальный контент, сохранив структуру:
 
-<p class="blog-reveal">Вступление...</p>
+<div class="blog-hero blog-reveal">
+  <div class="blog-hero-badge"><span class="blog-pulse-dot"></span> Блог о развитии ребёнка</div>
+  <h1>Заголовок со <span class="blog-gradient-text">gradient словом</span></h1>
+  <p class="blog-hero-subtitle">Интригующий подзаголовок статьи</p>
+  <div class="blog-hero-meta">📖 5 минут чтения · 👶 Для заботливых родителей</div>
+</div>
 
-<h2>Заголовок секции</h2>
-<p class="blog-reveal">Текст с <strong>выделениями</strong>...</p>
-<ul class="blog-reveal">
-  <li><strong>Пункт</strong> — описание</li>
+<p class="blog-lead blog-reveal">Развёрнутый лид-абзац с <strong>выделениями</strong> и <mark class="blog-highlight">важными фактами</mark>. Устанавливает экспертность.</p>
+
+<h2>Первый <span class="blog-gradient-text">ключевой</span> вопрос</h2>
+<div class="blog-video-section blog-reveal"><video autoplay muted playsinline loop class="blog-animation-video"><source src="VIDEO_HERO_URL" type="video/mp4"></video></div>
+<p class="blog-reveal">Текст секции — развёрнутый, с <strong>выделениями</strong> и конкретными данными.</p>
+<ul class="blog-stagger-list blog-reveal">
+  <li data-stagger="0"><strong>Пункт 1</strong> — развёрнутое описание</li>
+  <li data-stagger="1"><strong>Пункт 2</strong> — развёрнутое описание</li>
+  <li data-stagger="2"><strong>Пункт 3</strong> — развёрнутое описание</li>
 </ul>
 
-<blockquote class="blog-pullquote blog-reveal">Цитата</blockquote>
-
-<h2>Этапы развития</h2>
+<h2>Этапы <span class="blog-gradient-text">развития</span></h2>
 <div class="blog-timeline blog-reveal">
   <div class="blog-timeline-item">
     <div class="blog-timeline-time">0-3 месяца</div>
     <h3>Первый этап</h3>
-    <p>Описание</p>
+    <p>Развёрнутое описание с конкретными деталями</p>
   </div>
   <div class="blog-timeline-item">
     <div class="blog-timeline-time">3-6 месяцев</div>
     <h3>Второй этап</h3>
-    <p>Описание</p>
+    <p>Развёрнутое описание</p>
   </div>
   <div class="blog-timeline-item">
     <div class="blog-timeline-time">6-12 месяцев</div>
     <h3>Третий этап</h3>
-    <p>Описание</p>
+    <p>Развёрнутое описание</p>
   </div>
   <div class="blog-timeline-item">
     <div class="blog-timeline-time">1-2 года</div>
     <h3>Четвёртый этап</h3>
-    <p>Описание</p>
+    <p>Развёрнутое описание</p>
+  </div>
+  <div class="blog-timeline-item">
+    <div class="blog-timeline-time">2-3 года</div>
+    <h3>Пятый этап</h3>
+    <p>Развёрнутое описание</p>
   </div>
 </div>
 
+<blockquote class="blog-pullquote blog-reveal">«Запоминающаяся цитата эксперта с конкретными цифрами»</blockquote>
+
 <div class="blog-stats blog-reveal">
-  <div class="blog-stat-item">
-    <div class="blog-stat-number" data-target="85" data-suffix="%">0</div>
-    <div class="blog-stat-label">Показатель</div>
+  <h3 class="blog-stats-title">Цифры и факты</h3>
+  <div class="blog-stats-grid">
+    <div class="blog-stat-item">
+      <div class="blog-stat-number" data-target="85" data-suffix="%">0</div>
+      <div class="blog-stat-label">Показатель</div>
+    </div>
+    <div class="blog-stat-item">
+      <div class="blog-stat-number" data-target="92" data-suffix="%">0</div>
+      <div class="blog-stat-label">Показатель</div>
+    </div>
+    <div class="blog-stat-item">
+      <div class="blog-stat-number" data-target="3" data-suffix="x">0</div>
+      <div class="blog-stat-label">Показатель</div>
+    </div>
   </div>
-  <div class="blog-stat-item">
-    <div class="blog-stat-number" data-target="92" data-suffix="%">0</div>
-    <div class="blog-stat-label">Показатель</div>
+  <div class="blog-chart-container blog-reveal">
+    <canvas id="blog-chart-1" class="blog-chart" data-type="doughnut" data-labels='["Категория А","Категория Б","Категория В"]' data-values='[45,35,20]' data-colors='["#a855f7","#f43f5e","#06b6d4"]'></canvas>
   </div>
-  <div class="blog-stat-item">
-    <div class="blog-stat-number" data-target="3" data-suffix="x">0</div>
-    <div class="blog-stat-label">Показатель</div>
+</div>
+
+<div class="blog-steps blog-reveal">
+  <div class="blog-step-item">
+    <div class="blog-step-number">1</div>
+    <div class="blog-step-content">
+      <h3>Шаг 1</h3>
+      <p>Развёрнутое описание</p>
+    </div>
   </div>
-  <div class="blog-stat-item">
-    <div class="blog-stat-number" data-target="150" data-suffix="+">0</div>
-    <div class="blog-stat-label">Показатель</div>
+  <div class="blog-step-item">
+    <div class="blog-step-number">2</div>
+    <div class="blog-step-content">
+      <h3>Шаг 2</h3>
+      <p>Развёрнутое описание</p>
+    </div>
+  </div>
+  <div class="blog-step-item">
+    <div class="blog-step-number">3</div>
+    <div class="blog-step-content">
+      <h3>Шаг 3</h3>
+      <p>Развёрнутое описание</p>
+    </div>
   </div>
 </div>
 
@@ -240,54 +341,50 @@ export async function generateContent(topic: string, title: string, requirements
   <div class="blog-tip-card">
     <div class="blog-tip-icon">🧸</div>
     <h3>Совет 1</h3>
-    <p>Описание</p>
+    <p>Развёрнутый совет минимум 2 предложения</p>
   </div>
   <div class="blog-tip-card">
     <div class="blog-tip-icon">👶</div>
     <h3>Совет 2</h3>
-    <p>Описание</p>
+    <p>Развёрнутый совет минимум 2 предложения</p>
   </div>
   <div class="blog-tip-card">
     <div class="blog-tip-icon">🧵</div>
     <h3>Совет 3</h3>
-    <p>Описание</p>
+    <p>Развёрнутый совет минимум 2 предложения</p>
   </div>
   <div class="blog-tip-card">
     <div class="blog-tip-icon">🛡️</div>
     <h3>Совет 4</h3>
-    <p>Описание</p>
+    <p>Развёрнутый совет минимум 2 предложения</p>
   </div>
 </div>
 
+<div class="blog-video-section blog-reveal"><video autoplay muted playsinline loop class="blog-animation-video"><source src="VIDEO_MID_URL" type="video/mp4"></video></div>
+
 <div class="blog-dark-section blog-reveal">
-  <h2>Мифы</h2>
+  <h2>Распространённые <span class="blog-gradient-text">мифы</span></h2>
   <div class="blog-myth-item">
-    <div class="blog-myth-question">❌ Миф: текст мифа</div>
-    <div class="blog-myth-answer">✅ Правда: реальный факт</div>
+    <div class="blog-myth-question">❌ Миф: описание мифа</div>
+    <div class="blog-myth-answer">✅ Правда: развёрнутый ответ с данными</div>
   </div>
   <div class="blog-myth-item">
-    <div class="blog-myth-question">❌ Миф: текст мифа</div>
-    <div class="blog-myth-answer">✅ Правда: реальный факт</div>
+    <div class="blog-myth-question">❌ Миф: описание мифа</div>
+    <div class="blog-myth-answer">✅ Правда: развёрнутый ответ с данными</div>
   </div>
   <div class="blog-myth-item">
-    <div class="blog-myth-question">❌ Миф: текст мифа</div>
-    <div class="blog-myth-answer">✅ Правда: реальный факт</div>
+    <div class="blog-myth-question">❌ Миф: описание мифа</div>
+    <div class="blog-myth-answer">✅ Правда: развёрнутый ответ с данными</div>
   </div>
 </div>
 
 <div class="blog-cta-section blog-reveal">
-  <h2>Готовы выбрать идеальную игрушку?</h2>
-  <p>Описание</p>
-  <a href="/catalog" class="blog-cta-button">Перейти в каталог</a>
+  <h2>Готовы выбрать <span class="blog-gradient-text">идеальную игрушку</span>?</h2>
+  <p>Описание с акцентом на пользу для ребёнка</p>
+  <a href="/catalog" class="blog-cta-button">Перейти в каталог →</a>
 </div>
 
-Теперь напиши ПОЛНЫЙ контент — 3000-5000 слов, с реальными данными и исследованиями. Вставь 2 плейсхолдера для видео:
-
-После первого <h2>:
-<div class="blog-video-section blog-reveal"><video autoplay muted playsinline loop class="blog-animation-video"><source src="VIDEO_HERO_URL" type="video/mp4"></video></div>
-
-Перед blog-dark-section:
-<div class="blog-video-section blog-reveal"><video autoplay muted playsinline loop class="blog-animation-video"><source src="VIDEO_MID_URL" type="video/mp4"></video></div>`,
+НАПОМИНАНИЕ: Это пример ФОРМАТА. Напиши свой уникальный контент 3000-5000 слов.`,
       },
     ],
     16384
@@ -303,16 +400,69 @@ export async function generateContent(topic: string, title: string, requirements
 function enhanceBlogHTML(html: string): string {
   const blogClassCount = (html.match(/class="[^"]*blog-(?!cta-button)/g) || []).length;
   if (blogClassCount > 5) {
-    return html;
+    // LLM already used blog-* classes — just add missing enhancements
+    let result = html;
+
+    // Add gradient-text to h2 headings that don't have it
+    result = result.replace(/<h2>([^<]{2,20}?)\s*([a-zA-Zа-яА-ЯёЁ][a-zA-Zа-яА-ЯёЁ\s]{2,20}?)\s*([^<]*?)<\/h2>/g,
+      (_match, before, middle, after) => {
+        if (before.includes('blog-gradient-text') || middle.includes('blog-gradient-text')) return _match;
+        // Skip if already has gradient span
+        if (_match.includes('blog-gradient-text')) return _match;
+        // Pick the most interesting word (2nd word usually)
+        const word = middle.trim();
+        if (word.length < 3) return _match;
+        return `<h2>${before.trim()} <span class="blog-gradient-text">${word}</span> ${after.trim()}</h2>`;
+      }
+    );
+
+    // Add data-stagger to list items that don't have it
+    let staggerIdx = 0;
+    result = result.replace(/<li(?![^>]*data-stagger)([^>]*)>/g, (match) => {
+      return `<li${match.slice(3, -1)} data-stagger="${staggerIdx++}">`;
+    });
+
+    // Ensure lists have blog-stagger-list class
+    result = result.replace(/<ul class="blog-reveal">/g, '<ul class="blog-stagger-list blog-reveal">');
+    result = result.replace(/<ol class="blog-reveal">/g, '<ol class="blog-stagger-list blog-reveal">');
+
+    return result;
   }
 
   let result = html;
 
+  // Wrap first <p> in hero section if no hero exists
+  if (!/blog-hero/.test(result)) {
+    const firstPMatch = result.match(/^(\s*)(<p[^>]*>)([\s\S]*?)(<\/p>)/);
+    if (firstPMatch) {
+      result = result.replace(firstPMatch[0],
+        `<div class="blog-hero blog-reveal">\n  <div class="blog-hero-badge"><span class="blog-pulse-dot"></span> Блог о развитии ребёнка</div>\n  ${firstPMatch[2]}${firstPMatch[3]}${firstPMatch[4]}\n</div>`
+      );
+    }
+  }
+
   result = result.replace(/<p>/g, '<p class="blog-reveal">');
-  result = result.replace(/<ul>/g, '<ul class="blog-reveal">');
-  result = result.replace(/<ol>/g, '<ol class="blog-reveal">');
+  result = result.replace(/<ul>/g, '<ul class="blog-stagger-list blog-reveal">');
+  result = result.replace(/<ol>/g, '<ol class="blog-stagger-list blog-reveal">');
   result = result.replace(/<blockquote>/g, '<blockquote class="blog-pullquote blog-reveal">');
   result = result.replace(/<blockquote\s+class="([^"]+)">/g, (_, cls: string) => `<blockquote class="${cls} blog-pullquote blog-reveal">`);
+
+  // Add data-stagger to list items
+  let staggerIdx2 = 0;
+  result = result.replace(/<li(?![^>]*data-stagger)([^>]*)>/g, (match) => {
+    return `<li${match.slice(3, -1)} data-stagger="${staggerIdx2++}">`;
+  });
+
+  // Add gradient-text to h2 headings
+  result = result.replace(/<h2>([^<]*?)<\/h2>/g, (_match, content: string) => {
+    if (content.includes('blog-gradient-text')) return _match;
+    const words = content.trim().split(/\s+/);
+    if (words.length < 2) return _match;
+    // Highlight the 2nd or 3rd word (usually the most impactful)
+    const idx = words.length >= 4 ? 2 : 1;
+    words[idx] = `<span class="blog-gradient-text">${words[idx]}</span>`;
+    return `<h2>${words.join(' ')}</h2>`;
+  });
 
   const mythPattern = /<h2>([^<]*(?:миф|заблужден|заблуждени)[^<]*)<\/h2>([\s\S]*?)(?=<h2>|$)/gi;
   result = result.replace(mythPattern, (match: string, title: string, body: string) => {
@@ -384,7 +534,7 @@ function enhanceBlogHTML(html: string): string {
     const statItems = statData.slice(0, 6).map(s =>
       `<div class="blog-stat-item"><div class="blog-stat-number" data-target="${s.number}" data-suffix="%">0</div><div class="blog-stat-label">${s.label}</div></div>`
     );
-    const statsBlock = `\n<div class="blog-stats blog-reveal">\n  ${statItems.join("\n  ")}\n</div>\n`;
+    const statsBlock = `\n<div class="blog-stats blog-reveal">\n  <h3 class="blog-stats-title">Цифры и факты</h3>\n  <div class="blog-stats-grid">\n  ${statItems.join("\n  ")}\n  </div>\n</div>\n`;
 
     const h2Positions: number[] = [];
     let searchFrom = 0;
@@ -412,7 +562,7 @@ function enhanceBlogHTML(html: string): string {
     if (ctaH2) {
       const ctaText = ctaH2[2].replace(/<\/?p[^>]*>/g, " ").trim();
       result = result.slice(0, result.lastIndexOf(ctaH2[0])) +
-        `<div class="blog-cta-section blog-reveal">\n  <h2>${ctaH2[1]}</h2>\n  <p class="blog-reveal">${ctaText}</p>\n  <a href="/catalog" class="blog-cta-button">Перейти в каталог</a>\n</div>`;
+        `<div class="blog-cta-section blog-reveal">\n  <h2>${ctaH2[1]}</h2>\n  <p class="blog-reveal">${ctaText}</p>\n  <a href="/catalog" class="blog-cta-button">Перейти в каталог →</a>\n</div>`;
     }
   }
 

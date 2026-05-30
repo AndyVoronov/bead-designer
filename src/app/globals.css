@@ -169,6 +169,85 @@ body {
   transition: width 0.1s;
 }
 
+/* Hero section */
+.blog-hero {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  padding: 2rem 0 1.5rem;
+}
+.blog-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  font-size: 13px;
+  font-weight: 500;
+  color: #a855f7;
+  margin-bottom: 1rem;
+}
+.blog-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #a855f7;
+  animation: blogPulse 2s infinite;
+}
+@keyframes blogPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+.blog-hero h1 {
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+  color: #1e1b4b;
+  margin-bottom: 1rem;
+}
+.blog-hero-subtitle {
+  font-size: 1.125rem;
+  font-weight: 300;
+  line-height: 1.5;
+  color: #64748b;
+  max-width: 32rem;
+  margin: 0 auto 1rem;
+}
+.blog-hero-meta {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* Gradient text */
+.blog-gradient-text {
+  background: linear-gradient(135deg, #a855f7, #f43f5e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Highlight mark */
+.blog-highlight {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(244, 63, 94, 0.15));
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #1e1b4b;
+  font-weight: 500;
+}
+
+/* Lead paragraph */
+.blog-lead {
+  font-size: 1.25rem;
+  font-weight: 300;
+  line-height: 1.7;
+  color: #312e81;
+  margin-bottom: 2.5rem;
+  border-left: 3px solid #a855f7;
+  padding-left: 1.25rem;
+}
+
 /* Timeline */
 .blog-timeline {
   position: relative;
@@ -225,11 +304,23 @@ body {
   padding: 2.5rem 1.5rem;
   border-radius: 1rem;
 }
-
+.blog-stats-title {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1.5rem !important;
+}
+.blog-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  text-align: center;
+}
 .blog-stats .blog-stat-item {
   text-align: center;
 }
-
 .blog-stats .blog-stat-number {
   font-size: clamp(2rem, 5vw, 3rem);
   font-weight: 300;
@@ -237,11 +328,67 @@ body {
   letter-spacing: -0.025em;
   line-height: 1.2;
 }
-
 .blog-stats .blog-stat-label {
   font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.5);
   margin-top: 0.25rem;
+}
+
+/* Chart container */
+.blog-chart-container {
+  margin-top: 2rem;
+  max-height: 320px;
+  position: relative;
+}
+
+/* Steps section */
+.blog-steps {
+  margin: 2rem 0;
+}
+.blog-step-item {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: flex-start;
+}
+.blog-step-item:last-child {
+  margin-bottom: 0;
+}
+.blog-step-number {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a855f7, #f43f5e);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.blog-step-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e1b4b;
+  margin: 0 0 0.25rem;
+}
+.blog-step-content p {
+  font-size: 0.9375rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Stagger list animations */
+.blog-stagger-list li {
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.blog-stagger-list.visible li {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 /* Tips grid */
@@ -404,6 +551,10 @@ body {
   .blog-stats {
     padding: 2rem 1rem;
   }
+  .blog-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
   .blog-dark-section {
     margin: 2rem -1rem;
     padding: 2rem 1rem;
@@ -411,5 +562,20 @@ body {
   .blog-video-section {
     width: calc(100% + 2rem);
     margin-left: -1rem;
+  }
+  .blog-hero h1 {
+    font-size: clamp(24px, 7vw, 36px);
+  }
+  .blog-steps {
+    margin: 1.5rem 0;
+  }
+  .blog-step-item {
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .blog-step-number {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
   }
 }

@@ -120,48 +120,211 @@ export function BlogContent({ content, products }: BlogContentProps) {
       placeholder.replaceWith(card);
     });
 
-    // Animate stat counters with IntersectionObserver
-    const statNumbers = container.querySelectorAll<HTMLElement>('.blog-stat-number[data-target]');
-    statNumbers.forEach((el) => {
-      const target = parseInt(el.dataset.target || '0', 10);
-      const suffix = el.dataset.suffix || '';
-      const prefix = el.dataset.prefix !== undefined ? el.dataset.prefix : '';
+    // ── GSAP ScrollTrigger animations ──
+    const initGSAP = () => {
+      const gsap = (window as any).gsap;
+      const ScrollTrigger = (window as any).ScrollTrigger;
+      if (!gsap || !ScrollTrigger) return;
 
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (!entry.isIntersecting) return;
-          observer.disconnect();
-          const duration = 2000;
-          const startTime = performance.now();
-          const animate = (now: number) => {
-            const elapsed = now - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            const current = Math.round(eased * target);
-            el.textContent = prefix + current.toLocaleString('ru-RU') + suffix;
-            if (progress < 1) requestAnimationFrame(animate);
-          };
-          requestAnimationFrame(animate);
-        },
-        { threshold: 0.3 }
-      );
-      observer.observe(el);
-    });
+      gsap.registerPlugin(ScrollTrigger);
 
-    // Scroll reveal for .blog-reveal elements
-    const revealObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            revealObserver.unobserve(entry.target);
-          }
+      // Hero entrance animation
+      const hero = container.querySelector('.blog-hero');
+      if (hero) {
+        const tl = gsap.timeline();
+        const badge = hero.querySelector('.blog-hero-badge');
+        const h1 = hero.querySelector('h1');
+        const subtitle = hero.querySelector('.blog-hero-subtitle');
+        const meta = hero.querySelector('.blog-hero-meta');
+
+        if (badge) tl.from(badge, { opacity: 0, y: 20, duration: 0.6 }, 0);
+        if (h1) tl.from(h1, { opacity: 0, y: 30, duration: 0.8 }, 0.2);
+        if (subtitle) tl.from(subtitle, { opacity: 0, y: 20, duration: 0.6 }, 0.5);
+        if (meta) tl.from(meta, { opacity: 0, duration: 0.5 }, 0.7);
+      }
+
+      // Stagger list items
+      container.querySelectorAll('.blog-stagger-list').forEach((list) => {
+        const items = list.querySelectorAll('li[data-stagger]');
+        items.forEach((item) => {
+          const stagger = parseInt((item as HTMLElement).dataset.stagger || '0', 10);
+          gsap.from(item, {
+            scrollTrigger: { trigger: item, start: 'top 85%', toggleActions: 'play none none none' },
+            opacity: 0,
+            x: stagger % 2 === 0 ? -20 : 20,
+            duration: 0.5,
+            delay: stagger * 0.1,
+          });
         });
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
-    );
-    container.querySelectorAll('.blog-reveal').forEach((el) => revealObserver.observe(el));
+      });
 
+      // Tip cards stagger
+      container.querySelectorAll('.blog-tips-grid').forEach((grid) => {
+        const cards = grid.querySelectorAll('.blog-tip-card');
+        gsap.from(cards, {
+          scrollTrigger: { trigger: grid, start: 'top 80%' },
+          opacity: 0,
+          y: 30,
+          duration: 0.5,
+          stagger: 0.1,
+        });
+      });
+
+      // Timeline items
+      container.querySelectorAll('.blog-timeline-item').forEach((item) => {
+        gsap.from(item, {
+          scrollTrigger: { trigger: item, start: 'top 85%' },
+          opacity: 0,
+          x: -30,
+          duration: 0.6,
+        });
+      });
+
+      // Step items
+      container.querySelectorAll('.blog-step-item').forEach((item, idx) => {
+        gsap.from(item, {
+          scrollTrigger: { trigger: item, start: 'top 85%' },
+          opacity: 0,
+          x: -20,
+          duration: 0.5,
+          delay: idx * 0.1,
+        });
+      });
+
+      // Pull quote
+      container.querySelectorAll('.blog-pullquote').forEach((quote) => {
+        gsap.from(quote, {
+          scrollTrigger: { trigger: quote, start: 'top 80%' },
+          opacity: 0,
+          scale: 0.95,
+          duration: 0.7,
+          ease: 'back.out(1.7)',
+        });
+      });
+
+      // Stats section
+      container.querySelectorAll('.blog-stats').forEach((stats) => {
+        gsap.from(stats.querySelectorAll('.blog-stat-item'), {
+          scrollTrigger: { trigger: stats, start: 'top 80%' },
+          opacity: 0,
+          y: 20,
+          duration: 0.5,
+          stagger: 0.15,
+        });
+      });
+    };
+
+    // ── Chart.js initialization ──
+    const initCharts = () => {
+      const Chart = (window as any).Chart;
+      if (!Chart) return;
+
+      container.querySelectorAll('.blog-chart').forEach((canvas) => {
+        const el = canvas as HTMLCanvasElement;
+        const chartType = el.dataset.type || 'doughnut';
+        const labelsRaw = el.dataset.labels || '[]';
+        const valuesRaw = el.dataset.values || '[]';
+        const colorsRaw = el.dataset.colors || '["#a855f7","#f43f5e","#06b6d4"]';
+
+        try {
+          const labels = JSON.parse(labelsRaw);
+          const values = JSON.parse(valuesRaw);
+          const colors = JSON.parse(colorsRaw);
+
+          new Chart(el, {
+            type: chartType,
+            data: {
+              labels,
+              datasets: [{
+                data: values,
+                backgroundColor: colors.map(c => c + '30'),
+                borderColor: colors,
+                borderWidth: 2,
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    color: '#94a3b8',
+                    font: { size: 12 },
+                    padding: 16,
+                  },
+                },
+              },
+              ...(chartType === 'bar' ? {
+                scales: {
+                  y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                  x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                },
+              } : {}),
+            },
+          });
+        } catch (e) {
+          console.warn('[blog] Chart init failed:', e);
+        }
+      });
+    };
+
+    // ── Stat counter animation ──
+    const initStatCounters = () => {
+      const statNumbers = container.querySelectorAll<HTMLElement>('.blog-stat-number[data-target]');
+      statNumbers.forEach((el) => {
+        const target = parseInt(el.dataset.target || '0', 10);
+        const suffix = el.dataset.suffix || '';
+        const prefix = el.dataset.prefix !== undefined ? el.dataset.prefix : '';
+
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            if (!entry.isIntersecting) return;
+            observer.disconnect();
+            const duration = 2000;
+            const startTime = performance.now();
+            const animate = (now: number) => {
+              const elapsed = now - startTime;
+              const progress = Math.min(elapsed / duration, 1);
+              const eased = 1 - Math.pow(1 - progress, 3);
+              const current = Math.round(eased * target);
+              el.textContent = prefix + current.toLocaleString('ru-RU') + suffix;
+              if (progress < 1) requestAnimationFrame(animate);
+            };
+            requestAnimationFrame(animate);
+          },
+          { threshold: 0.3 }
+        );
+        observer.observe(el);
+      });
+    };
+
+    // ── Scroll reveal for .blog-reveal elements ──
+    const initReveal = () => {
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              revealObserver.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+      );
+      container.querySelectorAll('.blog-reveal').forEach((el) => revealObserver.observe(el));
+    };
+
+    // Initialize everything
+    // Small delay to ensure external scripts are loaded
+    const timer = setTimeout(() => {
+      initGSAP();
+      initCharts();
+      initStatCounters();
+      initReveal();
+    }, 200);
+
+    return () => clearTimeout(timer);
   }, [content, products, toast]);
 
   const safeContent = sanitizeHtml(content);
