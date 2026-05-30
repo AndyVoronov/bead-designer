@@ -1,31 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * Admin page protection proxy (Next.js 16 convention).
+ * Protects /admin/* PAGE routes by redirecting unauthenticated users to login.
+ * API routes (/api/admin/*) are NOT intercepted here — each API handler
+ * calls isAdmin() directly, which preserves the request body for POST/PUT/PATCH.
+ */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get("admin_token")?.value;
 
-  // Whitelist the login page and auth API — no auth check needed
-  if (pathname === "/admin/login" || pathname === "/api/admin/auth") {
+  // Skip API routes — they have their own isAdmin() check
+  if (pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 
-  // Guard /admin/* page routes and /api/admin/* API routes
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
-    if (!token) {
-      // Page routes: redirect to login
-      if (pathname.startsWith("/admin")) {
-        const loginUrl = request.nextUrl.clone();
-        loginUrl.pathname = "/admin/login";
-        return NextResponse.redirect(loginUrl);
-      }
-      // API routes: return 401 JSON
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  // Only intercept admin page routes
+  if (!pathname.startsWith("/admin")) {
+    return NextResponse.next();
+  }
+
+  // Allow public admin pages
+  if (pathname === "/admin/login") {
+    return NextResponse.next();
+  }
+
+  // Check admin token cookie
+  const token = request.cookies.get("admin_token")?.value;
+
+  if (!token) {
+    const loginUrl = new URL("/admin/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*"],
 };

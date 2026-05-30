@@ -38,18 +38,4 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
-  try {
-    const orders = await prisma.order.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json(orders);
-  } catch (error) {
-    console.error("Failed to fetch orders:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch orders" },
-      { status: 500 }
-    );
-  }
-}
+// Removed public GET — use /api/orders/mine (user) or /api/admin/orders (admin)

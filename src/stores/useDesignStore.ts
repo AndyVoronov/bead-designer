@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { BeadState } from "@/types/bead";
 import { CATALOG_BEADS, getCatalogBead } from "@/data/catalogBeads";
-import { catalogBeadToBeadState } from "@/lib/catalogUtils";
+import { catalogBeadToBeadState } from "@/lib/bead-utils";
 
 // ── Default chain ────────────────────────────────────────────────────────────
 // Same 7 default beads as useBeadChain's DEFAULT_BEADS.

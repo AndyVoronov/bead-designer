@@ -86,3 +86,17 @@
 - **PM2 startup persistence**: After deploying, run `pm2 save` and `pm2 startup` to ensure the process survives VPS reboots. Without this, PM2 forgets the process list on restart.
 - **prisma.config.ts must be deployed**: Prisma 7 uses prisma.config.ts (not schema.prisma) for the datasource URL. Deploying schema.prisma alone causes "must start with postgresql://" errors on `prisma db push`.
 - **Seed script may need src/ directory**: If `prisma/seed.ts` imports from project source files (e.g., `src/data/catalogBeads.ts`), those source files must also be deployed to the VPS.
+- **tar xzf does NOT reliably overwrite busy files**: When Node.js is running and holding file handles, `tar xzf` silently fails to overwrite some compiled chunks. The result is a **mix of old and new code** — md5 hashes differ. **Fix**: always `rm -rf .next` before extracting. **Verification**: compare md5 of key chunks between local build and VPS.
+- **cp -a, not mv, for standalone extraction**: `mv .next/standalone/* .` moves `.next/standalone/.next/` to `.next/.next/` (nested wrong), then `rm -rf .next/standalone` removes the original which also contained `.next/static/`. Use `cp -a` then `rm -rf .next/standalone` to preserve both server and static dirs.
+- **PM2 env block must contain ALL secrets**: Next.js standalone does NOT load `.env` files at runtime. Every secret must be in `ecosystem.config.cjs` → `env` block. `.env.production` alone is not enough.
+
+## NextAuth v5 Deployment
+
+- **npm install next-auth gives v4**: v5 is beta. Must use `npm install next-auth@beta`. v4 returns `{}` instead of `{ handlers, auth, signIn, signOut }`, causing `Cannot destructure property 'GET'`.
+- **Yandex userinfo needs oauth_token as query param**: Yandex ignores `Authorization: Bearer` header on `login.yandex.ru/info`. Token must be `?oauth_token=<token>`. Provider config needs `userinfo.request` callback to override default header-based auth.
+- **Content-type error on OAuth callback**: `"response" content-type must be application/json"` from @auth/core fires on 4xx responses during token/userinfo exchange. Most often caused by stale build with wrong provider config, not an actual content-type issue.
+- **Beautiful landing page on milestone/M001, not main**: Commit `3312ff5` (`wip: M002 personal account`) on `milestone/M001` contains the full landing page with animations, 3D bead scene, reviews. It was never merged to `main`. Deploy from this commit or cherry-pick.
+
+## Prisma v7 Lazy Initialization
+
+- **PrismaClient with driver adapter fails at build time**: `PrismaPg` + `Pool` connects immediately on `new PrismaClient()`. During `next build`, Next.js evaluates module-level code to collect page data, causing connection errors. **Fix**: use a `Proxy` that defers construction until first property access (first actual query at request time).

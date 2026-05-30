@@ -1,10 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
+import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 
 const AUTH_SECRET = new TextEncoder().encode(
   process.env.AUTH_SECRET || "toy-designer-default-secret-change-in-production"
 );
+
+/**
+ * Verify Telegram Login Widget data hash.
+ * https://core.telegram.org/widgets/login#checking-authorization
+ *
+ * The hash is HMAC-SHA256 of the data-check-string using BOT_TOKEN as key.
+ * data-check-string = sorted key=value pairs (excluding hash), joined with \n
+ */
+function verifyTelegramHash(data: Record<string, unknown>): boolean {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    console.error("TELEGRAM_BOT_TOKEN not set — cannot verify Telegram auth");
+    return false;
+  }
+
+  const hash = data.hash;
+  if (!hash || typeof hash !== "string") return false;
+
+  // Build data-check-string: sort all fields except 'hash', join with \n
+  const dataCheckString = Object.keys(data)
+    .filter((key) => key !== "hash" && data[key] != null)
+    .sort()
+    .map((key) => `${key}=${data[key]}`)
+    .join("\n");
+
+  // Compute HMAC-SHA256
+  const secretKey = createHmac("sha256", botToken).update("WebAppData").digest();
+  const computedHash = createHmac("sha256", secretKey)
+    .update(dataCheckString)
+    .digest("hex");
+
+  // Timing-safe comparison
+  try {
+    const a = Buffer.from(hash, "hex");
+    const b = Buffer.from(computedHash, "hex");
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Telegram Login Widget authentication endpoint.
@@ -22,13 +64,33 @@ const AUTH_SECRET = new TextEncoder().encode(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, first_name, last_name, username, photo_url } = body;
+    const { id, first_name, last_name, username, photo_url, hash, ...restAuthData } = body;
 
     if (!id) {
       return NextResponse.json(
         { error: "Missing Telegram user id" },
         { status: 400 }
       );
+    }
+
+    // Verify Telegram hash to prevent impersonation
+    if (hash) {
+      const authData = { id, first_name, last_name, username, photo_url, ...restAuthData, hash };
+      if (!verifyTelegramHash(authData)) {
+        return NextResponse.json(
+          { error: "Invalid Telegram authentication" },
+          { status: 401 }
+        );
+      }
+    } else {
+      // No hash provided — reject in production
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          { error: "Missing authentication hash" },
+          { status: 401 }
+        );
+      }
+      console.warn("Telegram auth without hash — allowed in development only");
     }
 
     const provider = "telegram";
@@ -48,7 +110,7 @@ export async function POST(request: NextRequest) {
       userId = existingAccount.userId;
       await prisma.user.update({
         where: { id: userId },
-        data: { name, avatar },
+        data: { name, avatar, telegramChatId: String(id) },
       });
       await prisma.account.update({
         where: { id: existingAccount.id },
@@ -59,6 +121,7 @@ export async function POST(request: NextRequest) {
         data: {
           name,
           avatar,
+          telegramChatId: String(id),
           accounts: {
             create: {
               provider,

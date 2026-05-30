@@ -10,7 +10,9 @@
 
 ## Current State
 
-S07 completed: Интеграция + деплой. Application deployed to VPS at http://89.111.175.54 with PostgreSQL 16, PM2, Nginx reverse proxy. All 16 routes responding correctly (public pages 200, admin auth guard 307/401, APIs 200/401). Database seeded with 8 templates. Admin panel functional with password auth. R010 validated. SSL/HTTPS pending (certbot not yet run). Real mobile FPS testing deferred (requires HTTPS). Deploy infrastructure: deploy.sh, setup-vps.sh, nginx.conf, ecosystem.config.cjs, smoke-test.sh, DEPLOY.md.
+M001 завершён (S01–S07). 10 из 11 требований validated. R010 (VPS деплой) — частично: статические страницы работают, API routes требуют fix (Prisma hash mismatch), SSL pending. milestone/M001 ветка слита в main.
+
+M002 в планировании: личный кабинет с OAuth (Yandex/VK/Telegram), сохранение дизайнов, избранное, отзывы, привязка заказов. Roadmap: 5 слайсов. В worktree есть черновой M002-код (auth, profile, favorites, reviews, designs API + UI components) — закоммичен но未经 runtime проверки.
 
 ## Architecture / Key Patterns
 

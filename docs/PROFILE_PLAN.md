@@ -1,146 +1,81 @@
-# Personal Account — Architecture Plan
+# Personal Account — Implementation Status
 
-## Auth Providers
-- **NextAuth.js v5 (Auth.js)** — session, JWT, OAuth flow
-- **Yandex ID** — OAuth2, returns email/name/avatar
-- **Telegram Login Widget** — returns id/name/username/photo
-- **VK OAuth** — returns id/name/photo
+> Original architecture plan preserved below with implementation notes.
 
-All three — user can link multiple social accounts to one profile.
-Contextual auth: login modal appears when user tries to save/favorite/review.
-No separate login page. Route: `/profile`.
+## ✅ Auth (Implemented)
+- **NextAuth.js v5 (Auth.js)** — JWT sessions, OAuth flow
+- **Yandex ID** — OAuth2, active in production
+- **Telegram Login Widget** — JWT verification, route at `/api/auth/telegram`
+- **VK OAuth** — conditional (credentials not configured, code ready)
+- **LoginModal** — dynamic provider list from `/api/auth/providers`
+- **Contextual auth** — modal triggers on protected actions
+- Files: `src/lib/auth.ts`, `src/lib/auth-provider.tsx`, `src/components/auth/LoginModal.tsx`, `src/app/api/auth/telegram/route.ts`
 
-Saved designs: unlimited per user.
+## ✅ Profile (Implemented)
+- `/profile` page with tabs
+- **Мои дизайны** — saved designs from constructor
+- **Избранное** — liked templates
+- **Мои отзывы** — user reviews with status
+- **Заказы** — order history
+- **Профиль** — name, phone, linked social accounts
+- Files: `src/app/profile/page.tsx`
+
+## ✅ Favorites (Implemented)
+- Toggle favorite on templates
+- Favorites tab in profile
+- Files: `src/app/api/favorites/route.ts`
+
+## ✅ Reviews (Implemented)
+- Star rating + text form
+- Moderation in admin (`/admin/reviews`)
+- User reviews tab with status (pending/approved)
+- Files: `src/app/api/reviews/route.ts`, `src/app/api/reviews/mine/route.ts`
+
+## ✅ Orders linkage (Implemented)
+- `userId` on orders
+- Orders tab in profile (`/api/orders/mine`)
+- Files: `src/app/api/orders/mine/route.ts`
+
+## ✅ 3D Constructor (Implemented)
+- Bead chain editor with physics (Rapier)
+- Save/load designs
+- Templates browser
+- Files: `src/app/editor/page.tsx`, `src/components/editor/`, `src/components/scene/`
+
+## ✅ Catalog + E-commerce (Implemented)
+- Product catalog with categories, badges, composite bundles
+- Cart (cookie-based) with checkout
+- Promo codes with scope and conditions
+- Admin panel: products, categories, badges, promo codes, orders
+- Image upload via admin
+- Files: `src/app/catalog/`, `src/app/cart/`, `src/app/api/promo/`
+
+## 🔮 Future Plans
+- Soft/plush toys catalog expansion
+- VK OAuth credentials configuration
+- Product image replacement with real photos
+- Deploy script improvement (don't overwrite `.env`, auto-fix symlinks)
+- Webpack fallback for production builds (eliminate Turbopack symlink issue)
 
 ---
+
+# Original Architecture Plan (Reference)
 
 ## Database Schema
 
-### New tables
+See `prisma/schema.prisma` for current state. Key models:
 
-```prisma
-model User {
-  id        Int       @id @default(autoincrement())
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  name      String?
-  email     String?   @unique
-  avatar    String?
-  phone     String?
+- `User` / `Account` — OAuth users with linked social accounts
+- `Favorite` — user favorites on templates
+- `Review` — user reviews with moderation
+- `SavedDesign` — saved 3D designs
+- `Order` / `OrderItem` — constructor orders
+- `CatalogOrder` — catalog product orders
+- `Product` (simple/composite) / `Category` / `Badge` / `PromoCode`
 
-  accounts   Account[]
-  favorites  Favorite[]
-  reviews    Review[]
-  designs    SavedDesign[]
-  orders     Order[]
-}
-
-model Account {
-  id          Int    @id @default(autoincrement())
-  userId      Int    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider    String  // "yandex" | "telegram" | "vkontakte"
-  providerId  String
-  accessToken String?
-  accountId   String? // username in social network
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([provider, providerId])
-}
-
-model Favorite {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  templateId Int      @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-
-  user     User     @relation(fields: [userId], references: [id])
-  template Template @relation(fields: [templateId], references: [id])
-
-  @@unique([userId, templateId])
-}
-
-model Review {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  authorName String   // snapshot of User.name at publish time
-  rating     Int      // 1-5
-  text       String
-  isApproved Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-}
-
-model SavedDesign {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name       String
-  designCode String
-  beadCount  Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
-}
-```
-
-### Modified tables
-- `Order` — add `userId Int? @relation(fields: [userId], references: [id])`
-- `Template` — add `favorites Favorite[]`, `favoriteCount Int @default(0)` (denormalized)
-
----
-
-## Profile Tabs
-1. **Мои дизайны** — saved from constructor (grid with thumbnails, open/delete)
-2. **Избранное** — liked templates
-3. **Мои отзывы** — with status badge (на модерации / опубликовано)
-4. **Заказы** — order history table
-5. **Профиль** — name, phone, linked social accounts
-
----
-
-## API Routes
-| Method | Route | Description |
-|--------|-------|-------------|
-| | `/api/auth/[...nextauth]` | NextAuth handlers |
-| POST/DELETE | `/api/favorites/[templateId]` | Toggle favorite |
-| GET | `/api/favorites` | User's favorites |
-| GET | `/api/reviews` | Approved reviews (public) |
-| POST | `/api/reviews` | Create review (auth required) |
-| GET | `/api/reviews/mine` | User's reviews with status |
-| POST | `/api/designs/save` | Save design (auth required) |
-| GET | `/api/designs/saved` | User's saved designs |
-| DELETE | `/api/designs/saved/[id]` | Delete saved design |
-| GET | `/api/orders/mine` | User's orders |
-
----
-
-## Admin Additions
-- Reviews: list all, approve/delete buttons
-- Users: view users, linked accounts
-
----
-
-## UI Components
-- `AuthProvider` — session wrapper
-- `LoginModal` — contextual auth with 3 social buttons
-- `ProfileLayout` — tab navigation + content
-- `ProfileDesigns` — saved designs grid
-- `ProfileFavorites` — favorited templates
-- `ProfileReviews` — user reviews with status
-- `ProfileOrders` — order history
-- `ProfileSettings` — name/phone/socials
-- `FavoriteButton` — heart toggle on template cards
-- `SaveDesignDialog` — name input in constructor
-- `ReviewForm` — stars + text in landing reviews
-- `StarRating` — clickable 1-5 stars input
-
----
-
-## Implementation Order (suggested slices)
-1. **Auth + User model** — NextAuth setup, Yandex/Telegram/VK providers, session, LoginModal
-2. **Profile + SavedDesigns** — /profile page, tabs layout, save/load designs from constructor
-3. **Favorites** — FavoriteButton, favorites tab, denormalized counter on templates
-4. **Reviews** — ReviewForm, moderation, reviews tab, admin approve/delete
-5. **Orders linkage** — userId on orders, orders tab, improve order flow with auth
+## Implementation Order (Completed)
+1. ~~**Auth + User model** — NextAuth setup, Yandex/Telegram/VK providers, session, LoginModal~~ ✅
+2. ~~**Profile + SavedDesigns** — /profile page, tabs layout, save/load designs~~ ✅
+3. ~~**Favorites** — FavoriteButton, favorites tab~~ ✅
+4. ~~**Reviews** — ReviewForm, moderation, reviews tab, admin approve/delete~~ ✅
+5. ~~**Orders linkage** — userId on orders, orders tab~~ ✅

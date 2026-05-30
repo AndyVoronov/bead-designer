@@ -69,3 +69,6 @@ vendor/
 coverage/
 .cache/
 tmp/
+
+# GSD agent runtime
+.gsd/

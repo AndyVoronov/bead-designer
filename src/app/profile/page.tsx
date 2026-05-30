@@ -1,24 +1,56 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-provider";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { decodeDesign } from "@/lib/serialization";
 import { getCatalogBead } from "@/data/catalogBeads";
 import { SignOut } from "@/components/auth/SignOut";
 
-type Tab = "designs" | "favorites" | "reviews" | "orders" | "settings";
+type Tab = "designs" | "productFavorites" | "favorites" | "reviews" | "orders" | "settings";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "designs", label: "Мои дизайны" },
-  { id: "favorites", label: "Избранное" },
-  { id: "reviews", label: "Отзывы" },
   { id: "orders", label: "Заказы" },
+  { id: "designs", label: "Мои дизайны" },
+  { id: "productFavorites", label: "Избранное" },
+  { id: "favorites", label: "Шаблоны" },
+  { id: "reviews", label: "Отзывы" },
   { id: "settings", label: "Профиль" },
 ];
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("designs");
+  const [ordersBadge, setOrdersBadge] = useState(false);
+
+  // Check for new orders on mount
+  useEffect(() => {
+    if (!user) return;
+    Promise.all([
+      fetch("/api/orders/mine").then((r) => r.ok ? r.json() : []).catch(() => []),
+      fetch("/api/catalog-orders/mine").then((r) => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([design, catalog]) => {
+      const activeStatuses = new Set(["new", "confirmed", "processing", "shipped"]);
+      const lastViewed = localStorage.getItem("orders-last-viewed");
+      const hasNew = [...design, ...catalog].some(
+        (o) => activeStatuses.has(o.status) && (!lastViewed || new Date(o.createdAt) > new Date(lastViewed))
+      );
+      setOrdersBadge(hasNew);
+
+      // Mark as viewed when user opens orders tab
+      if (hasNew) {
+        const handler = () => {
+          if (activeTab === "orders") {
+            localStorage.setItem("orders-last-viewed", new Date().toISOString());
+            setOrdersBadge(false);
+          }
+        };
+        handler();
+        return () => {};
+      }
+    });
+  }, [user]);
 
   if (loading) {
     return (
@@ -55,9 +87,11 @@ export default function ProfilePage() {
               {/* Avatar */}
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-xl font-semibold overflow-hidden">
                 {user.image ? (
-                  <img src={user.image} alt={user.name ?? ""} className="w-full h-full object-cover" />
+                  <img src={user.image} alt={user.name ?? ""} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
-                  (user.name ?? "U").charAt(0).toUpperCase()
+                  <div className="w-full h-full bg-rose-100 flex items-center justify-center text-rose-400 font-bold text-lg">
+                    {user.name?.charAt(0)?.toUpperCase() || "?"}
+                  </div>
                 )}
               </div>
               <div>
@@ -84,13 +118,17 @@ export default function ProfilePage() {
       </header>
 
       {/* Tabs */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10" role="tablist" aria-label="Вкладки профиля">
         <div className="max-w-3xl mx-auto px-4">
           <div className="flex gap-0 overflow-x-auto">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`tabpanel-${tab.id}`}
+                id={`tab-${tab.id}`}
                 className={`relative px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   activeTab === tab.id
                     ? "text-rose-600"
@@ -98,6 +136,9 @@ export default function ProfilePage() {
                 }`}
               >
                 {tab.label}
+                {tab.id === "orders" && ordersBadge && activeTab !== "orders" && (
+                  <span className="absolute top-2 right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+                )}
                 {activeTab === tab.id && (
                   <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-rose-500 rounded-full" />
                 )}
@@ -109,17 +150,113 @@ export default function ProfilePage() {
 
       {/* Tab Content */}
       <main className="max-w-3xl mx-auto px-4 py-6">
-        {activeTab === "designs" && <TabDesigns />}
-        {activeTab === "favorites" && <TabFavorites />}
-        {activeTab === "reviews" && <TabReviews />}
-        {activeTab === "orders" && <TabOrders />}
-        {activeTab === "settings" && <TabSettings />}
+        {activeTab === "designs" && (
+          <div role="tabpanel" id="tabpanel-designs" aria-labelledby="tab-designs">
+            <TabDesigns />
+          </div>
+        )}
+        {activeTab === "productFavorites" && (
+          <div role="tabpanel" id="tabpanel-productFavorites" aria-labelledby="tab-productFavorites">
+            <TabProductFavorites />
+          </div>
+        )}
+        {activeTab === "favorites" && (
+          <div role="tabpanel" id="tabpanel-favorites" aria-labelledby="tab-favorites">
+            <TabFavorites />
+          </div>
+        )}
+        {activeTab === "reviews" && (
+          <div role="tabpanel" id="tabpanel-reviews" aria-labelledby="tab-reviews">
+            <TabReviews />
+          </div>
+        )}
+        {activeTab === "orders" && (
+          <div role="tabpanel" id="tabpanel-orders" aria-labelledby="tab-orders">
+            <TabOrders onOpened={() => setOrdersBadge(false)} />
+          </div>
+        )}
+        {activeTab === "settings" && (
+          <div role="tabpanel" id="tabpanel-settings" aria-labelledby="tab-settings">
+            <TabSettings />
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
 // ── Tab placeholders ─────────────────────────────────────────────────────────
+
+function TabProductFavorites() {
+  const [favorites, setFavorites] = useState<Array<{
+    id: number;
+    product: {
+      id: number;
+      name: string;
+      slug: string;
+      basePrice: number;
+      discountPercent: number;
+      mainImage: { url: string } | null;
+    };
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/product-favorites")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setFavorites(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleUnfavorite = useCallback(async (productId: number) => {
+    await fetch("/api/product-favorites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId }),
+    });
+    setFavorites((prev) => prev.filter((f) => f.product.id !== productId));
+  }, []);
+
+  if (loading) return <LoadingSkeleton />;
+  if (favorites.length === 0) return <EmptyState text="У вас пока нет избранных товаров" />;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {favorites.map((f) => {
+        const price = f.product.discountPercent > 0
+          ? Math.round(f.product.basePrice * (1 - f.product.discountPercent / 100))
+          : f.product.basePrice;
+
+        return (
+          <div key={f.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-start gap-3">
+              {f.product.mainImage ? (
+                <a href={`/catalog/${f.product.slug}`} className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0 relative">
+                  <Image src={`/api${f.product.mainImage.url}`} alt={f.product.name} fill className="object-cover" sizes="80px" />
+                </a>
+              ) : (
+                <div className="w-16 h-16 rounded-lg bg-gray-100 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <a href={`/catalog/${f.product.slug}`} className="font-medium text-gray-900 hover:text-rose-600 transition-colors">
+                  {f.product.name}
+                </a>
+                <p className="text-sm text-gray-500 mt-0.5">{price.toLocaleString("ru-RU")} ₽</p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-2">
+              <a href={`/catalog/${f.product.slug}`} className="text-sm text-rose-600 hover:text-rose-700 font-medium">Открыть</a>
+              <button onClick={() => handleUnfavorite(f.product.id)} className="text-sm text-gray-400 hover:text-red-500">Убрать</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function TabDesigns() {
   const [designs, setDesigns] = useState<Array<{ id: number; name: string; designCode: string; beadCount: number; updatedAt: string }>>([]);
@@ -375,77 +512,272 @@ function TabReviews() {
   );
 }
 
-function TabOrders() {
-  const [orders, setOrders] = useState<Array<{ id: number; designCode: string; beadCount: number; status: string; createdAt: string }>>([]);
+function TabOrders({ onOpened }: { onOpened?: () => void }) {
+  const [designOrders, setDesignOrders] = useState<Array<{ id: number; designCode: string; beadCount: number; status: string; createdAt: string }>>([]);
+  const [catalogOrders, setCatalogOrders] = useState<Array<{
+    id: number;
+    totalAmount: number;
+    status: string;
+    contactName: string;
+    items: Array<{ productName: string; productPrice: number; quantity: number; productId?: number }>;
+    createdAt: string;
+  }>>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "completed">("all");
+  const [reordering, setReordering] = useState<number | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
-    fetch("/api/orders/mine")
-      .then((r) => r.json())
-      .then(setOrders)
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/orders/mine").then((r) => r.ok ? r.json() : []).catch(() => []),
+      fetch("/api/catalog-orders/mine").then((r) => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([design, catalog]) => {
+      setDesignOrders(design);
+      setCatalogOrders(catalog);
+
+      // Mark orders as viewed
+      localStorage.setItem("orders-last-viewed", new Date().toISOString());
+      onOpened?.();
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingSkeleton />;
 
-  if (orders.length === 0) {
-    return <EmptyState text="У вас пока нет заказов" />;
-  }
+  const hasOrders = designOrders.length > 0 || catalogOrders.length > 0;
+  if (!hasOrders) return <EmptyState text="У вас пока нет заказов" />;
 
   const statusLabels: Record<string, { text: string; color: string }> = {
     new: { text: "Новый", color: "bg-blue-50 text-blue-600" },
+    confirmed: { text: "Подтверждён", color: "bg-yellow-50 text-yellow-600" },
     processing: { text: "В работе", color: "bg-amber-50 text-amber-600" },
+    shipped: { text: "Отправлен", color: "bg-purple-50 text-purple-600" },
     completed: { text: "Выполнен", color: "bg-emerald-50 text-emerald-600" },
+    cancelled: { text: "Отменён", color: "bg-gray-50 text-gray-600" },
   };
 
+  const activeStatuses = new Set(["new", "confirmed", "processing", "shipped"]);
+  const completedStatuses = new Set(["completed", "cancelled"]);
+
+  const filterOrder = (status: string) => {
+    if (statusFilter === "active") return activeStatuses.has(status);
+    if (statusFilter === "completed") return completedStatuses.has(status);
+    return true;
+  };
+
+  const handleReorder = async (orderId: number) => {
+    const order = catalogOrders.find((o) => o.id === orderId);
+    if (!order) return;
+    setReordering(orderId);
+    try {
+      const results = await Promise.all(
+        order.items.map((item) =>
+          fetch("/api/cart", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: item.productId, quantity: item.quantity }),
+          })
+        )
+      );
+      if (results.some((r) => !r.ok)) throw new Error();
+      toast.success("Товары добавлены в корзину");
+      // Trigger cart count update
+      window.dispatchEvent(new CustomEvent("cart-updated"));
+    } catch {
+      toast.error("Не удалось повторить заказ");
+    } finally {
+      setReordering(null);
+    }
+  };
+
+  const filteredCatalogOrders = catalogOrders.filter((o) => filterOrder(o.status));
+  const filteredDesignOrders = designOrders.filter((o) => filterOrder(o.status));
+  const hasFiltered = filteredCatalogOrders.length > 0 || filteredDesignOrders.length > 0;
+
   return (
-    <div className="flex flex-col gap-3">
-      {orders.map((o) => {
-        const status = statusLabels[o.status] || statusLabels.new;
-        return (
-          <div key={o.id} className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-1 mb-2 min-h-[16px]">
-              {(() => {
-                try {
-                  const design = decodeDesign(o.designCode);
-                  return (design?.b ?? []).slice(0, 10).map((id, i) => {
-                    const bead = getCatalogBead(id);
-                    return <span key={i} className="block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: bead?.color ?? "#D1D5DB" }} />;
-                  });
-                } catch { return null; }
-              })()}
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  Заказ #{o.id} · {o.beadCount} бусин
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {new Date(o.createdAt).toLocaleDateString("ru-RU")}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={`/design/${o.designCode}`}
-                  className="text-xs text-rose-600 hover:text-rose-700 font-medium"
-                >
-                  Открыть
-                </a>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${status.color}`}>
-                  {status.text}
-                </span>
-              </div>
-            </div>
+    <div className="flex flex-col gap-6">
+      {/* Status filter */}
+      <div className="flex gap-2">
+        {([
+          { id: "all" as const, label: "Все" },
+          { id: "active" as const, label: "Активные" },
+          { id: "completed" as const, label: "Завершённые" },
+        ]).map((f) => (
+          <button
+            key={f.id}
+            onClick={() => setStatusFilter(f.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              statusFilter === f.id
+                ? "bg-rose-500 text-white shadow-sm"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {!hasFiltered && (
+        <EmptyState text="Нет заказов с выбранным фильтром" />
+      )}
+
+      {/* Catalog orders */}
+      {filteredCatalogOrders.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Покупки в магазине</h3>
+          <div className="flex flex-col gap-3">
+            {filteredCatalogOrders.map((o) => {
+              const status = statusLabels[o.status] || statusLabels.new;
+              const stepIdx = ["new", "confirmed", "processing", "shipped", "completed"].indexOf(o.status);
+              return (
+                <div key={o.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-gray-900">
+                      Заказ #{o.id}
+                    </p>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${status.color}`}>
+                      {status.text}
+                    </span>
+                  </div>
+
+                  {/* Status tracker (#10) */}
+                  {activeStatuses.has(o.status) && stepIdx >= 0 && (
+                    <div className="flex items-center gap-1 mb-3 px-1">
+                      {["new", "confirmed", "processing", "shipped", "completed"].map((step, i) => {
+                        const isDone = i <= stepIdx;
+                        const isCurrent = i === stepIdx;
+                        const labels = ["Новый", "Подтв.", "В работе", "Отправка", "Готов"];
+                        return (
+                          <div key={step} className="flex items-center gap-1 flex-1">
+                            <div className="flex flex-col items-center flex-1">
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-colors ${isDone ? "bg-rose-500 text-white" : "bg-gray-200 text-gray-400"}`}>
+                                {isCurrent ? (i + 1) : isDone ? "✓" : (i + 1)}
+                              </div>
+                              <span className={`text-[9px] mt-0.5 ${isCurrent ? "text-rose-500 font-medium" : "text-gray-400"}`}>
+                                {labels[i]}
+                              </span>
+                            </div>
+                            {i < 4 && (
+                              <div className={`h-0.5 flex-1 -mt-3 ${i < stepIdx ? "bg-rose-500" : "bg-gray-200"}`} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="text-xs text-gray-400 mb-2">
+                    {new Date(o.createdAt).toLocaleDateString("ru-RU")}
+                  </div>
+                  <div className="space-y-1">
+                    {o.items.map((item, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">{item.productName} × {item.quantity}</span>
+                        <span className="text-gray-800 font-medium">{item.productPrice.toLocaleString("ru-RU")} ₽</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-gray-100 mt-2 pt-2 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Итого</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleReorder(o.id)}
+                        disabled={reordering === o.id}
+                        className="text-xs text-rose-500 hover:text-rose-600 font-medium cursor-pointer disabled:opacity-50"
+                      >
+                        {reordering === o.id ? "Добавление..." : "Повторить"}
+                      </button>
+                      <span className="text-sm font-bold text-gray-800">{o.totalAmount.toLocaleString("ru-RU")} ₽</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      )}
+
+      {/* Design orders (legacy) */}
+      {filteredDesignOrders.length > 0 && (
+        <div>
+          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Заказы из конструктора</h3>
+          <div className="flex flex-col gap-3">
+            {filteredDesignOrders.map((o) => {
+              const status = statusLabels[o.status] || statusLabels.new;
+              return (
+                <div key={o.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center gap-1 mb-2 min-h-[16px]">
+                    {(() => {
+                      try {
+                        const design = decodeDesign(o.designCode);
+                        return (design?.b ?? []).slice(0, 10).map((id, i) => {
+                          const bead = getCatalogBead(id);
+                          return <span key={i} className="block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: bead?.color ?? "#D1D5DB" }} />;
+                        });
+                      } catch { return null; }
+                    })()}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Заказ #{o.id} · {o.beadCount} бусин
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(o.createdAt).toLocaleDateString("ru-RU")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a href={`/design/${o.designCode}`} className="text-xs text-rose-600 hover:text-rose-700 font-medium">Открыть</a>
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${status.color}`}>{status.text}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function TabSettings() {
   const { user } = useAuth();
+  const toast = useToast();
+  const [name, setName] = useState(user?.name ?? "");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // Fetch current phone from session (not in user object)
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((s) => {
+        // Phone not in session, use profile endpoint placeholder
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone: phone || undefined }),
+      });
+      if (res.ok) {
+        toast.success("Профиль обновлён");
+        // Refresh session to update name in header
+        window.dispatchEvent(new CustomEvent("auth-state-change"));
+      } else {
+        toast.error("Не удалось сохранить");
+      }
+    } catch {
+      toast.error("Ошибка сохранения");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -455,7 +787,8 @@ function TabSettings() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Имя</label>
           <input
             type="text"
-            defaultValue={user?.name ?? ""}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             placeholder="Ваше имя"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
           />
@@ -464,12 +797,18 @@ function TabSettings() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
           <input
             type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
             placeholder="+7 (___) ___-__-__"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
           />
         </div>
-        <button className="px-4 py-2 bg-rose-500 text-white text-sm font-medium rounded-lg hover:bg-rose-600 transition-colors cursor-pointer">
-          Сохранить
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 bg-rose-500 text-white text-sm font-medium rounded-lg hover:bg-rose-600 transition-colors cursor-pointer disabled:opacity-50"
+        >
+          {saving ? "Сохранение..." : "Сохранить"}
         </button>
       </div>
     </div>

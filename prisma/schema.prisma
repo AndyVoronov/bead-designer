@@ -9,40 +9,317 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ── Catalog: Categories ──────────────────────────────────────────────────
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String
+  slug      String    @unique
+  parentId  Int?
+  parent    Category? @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  order     Int       @default(0)
+  products  Product[]
+  reviews   Review[]
+  createdAt DateTime  @default(now())
+}
+
+// ── Catalog: Badges ──────────────────────────────────────────────────────
+
+model Badge {
+  id       Int       @id @default(autoincrement())
+  label    String    @unique  // "NEW", "SALE", "HIT", "LIMITED"
+  textColor String
+  bgColor  String
+  order    Int       @default(0)
+  products ProductBadge[]
+  createdAt DateTime @default(now())
+}
+
+// ── Catalog: Products ────────────────────────────────────────────────────
+
+model Product {
+  id              Int              @id @default(autoincrement())
+  name            String
+  slug            String           @unique
+  shortDescription String?
+  description     String?          @db.Text  // Markdown or HTML
+  basePrice       Float            // Base price in RUB
+  discountPercent Int              @default(0) // 0-100
+  type            String           @default("simple") // "simple" | "composite"
+  status          String           @default("draft") // "draft" | "active" | "archived"
+
+  category        Category?        @relation(fields: [categoryId], references: [id])
+  categoryId      Int?
+
+  images          ProductImage[]
+  badges          ProductBadge[]
+  compositeItems  CompositeItem[]  @relation("CompositeParent")
+  compositeIn     CompositeItem[]  @relation("CompositeChild")
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  productFavorites ProductFavorite[]
+  reviews         Review[]
+
+  stockQuantity   Int              @default(0) // available stock; 0 = made to order
+  recommendedAge  String?          // "0+", "6m+", "1+", "3+", "6+" etc.
+  trustBadges     ProductTrustBadge[]
+  waitlistEntries WaitlistEntry[]
+  productFaqs     ProductFaq[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // @@tsvector search: generated column + GIN index (see scripts/add-search-vector.sql)
+}
+
+// ── Catalog: Product Images ──────────────────────────────────────────────
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   // relative path: /uploads/products/xxx.jpg
+  order     Int      @default(0)
+  isMain    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+// ── Catalog: Product-Badge Junction ──────────────────────────────────────
+
+model ProductBadge {
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  badgeId   Int
+  badge     Badge   @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([productId, badgeId])
+}
+
+// ── Catalog: Composite Items (bundle components) ─────────────────────────
+
+model CompositeItem {
+  id       Int     @id @default(autoincrement())
+  parentId Int     // composite product
+  parent   Product @relation("CompositeParent", fields: [parentId], references: [id], onDelete: Cascade)
+  childId  Int     // simple product component
+  child    Product @relation("CompositeChild", fields: [childId], references: [id], onDelete: Cascade)
+  quantity Int     @default(1)
+
+  @@unique([parentId, childId])
+}
+
+// ── Catalog: Product-TrustBadge Junction ────────────────────────────────
+
+model TrustBadge {
+  id          Int      @id @default(autoincrement())
+  label       String   // "Безопасные материалы"
+  icon        String   // lucide icon name: "Shield", "Truck", etc.
+  description String?  // optional longer text
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  products    ProductTrustBadge[]
+  createdAt   DateTime @default(now())
+
+  @@map("trust_badges")
+}
+
+model ProductTrustBadge {
+  productId    Int
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  trustBadgeId Int
+  trustBadge   TrustBadge @relation(fields: [trustBadgeId], references: [id], onDelete: Cascade)
+
+  @@id([productId, trustBadgeId])
+  @@map("product_trust_badges")
+}
+
+// ── Waitlist ────────────────────────────────────────────────────────────
+
+model WaitlistEntry {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  email     String
+  notified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, email])
+  @@index([productId])
+  @@index([notified])
+  @@map("waitlist_entries")
+}
+
+// ── Cart ─────────────────────────────────────────────────────────────────
+
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  userId    Int?
+  user      User?   @relation(fields: [userId], references: [id])
+  sessionId String? // for guest carts
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int     @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
+}
+
+// ── Orders (from cart) ──────────────────────────────────────────────────
+
+model CatalogOrder {
+  id          Int         @id @default(autoincrement())
+  items       OrderItem[]
+  totalAmount Float
+  discount    Float       @default(0) // total discount from promo
+  status      String      @default("new") // "new" | "confirmed" | "processing" | "shipped" | "completed" | "cancelled"
+  contactName String
+  contactPhone String?
+  contactEmail String?
+  contactTelegram String?
+  deliveryMethod  String?     // "cdek" | "russian_post" | "courier" | "pickup"
+  deliveryCity    String?
+  deliveryAddress String?
+  deliveryIndex   String?
+  comment     String?     @db.Text
+  promoCode   PromoCode?  @relation(fields: [promoCodeId], references: [id])
+  promoCodeId Int?
+  user        User?       @relation(fields: [userId], references: [id])
+  userId      Int?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([promoCodeId])
+  @@index([status])
+}
+
+model OrderItem {
+  id             Int           @id @default(autoincrement())
+  order          CatalogOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId        Int
+  product        Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId      Int?
+  productName    String        // snapshot at order time
+  productPrice   Float         // snapshot at order time
+  quantity       Int
+  compositeItems String?       @db.Text // JSON: array of {name, price, quantity}
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ── Promo Codes ─────────────────────────────────────────────────────────
+
+model PromoCode {
+  id                Int       @id @default(autoincrement())
+  code              String    @unique
+  description       String?
+
+  // Discount settings
+  discountType      String    @default("percent") // "percent" | "fixed"
+  discountValue     Float                        // percent: 0-100, fixed: absolute amount
+
+  // Scope: what the promo applies to
+  scope             String    @default("cart")    // "cart" | "products" | "categories" | "gift"
+  productIds        Int[]                         // applies only to these products
+  categoryIds       Int[]                         // applies only to these categories (checks product's categoryId)
+  giftProductId     Int?                          // for "gift" type: which product to add
+  giftPrice         Float?    @default(0)         // for "gift" type: special price (0 = free)
+
+  // Conditions: what must be in the cart to apply this promo
+  requiredProductIds   Int[]                         // all must be present in cart
+  requiredCategoryIds  Int[]                         // at least one product from these categories
+  requiredMinQuantity  Json                           // { "9": 2 } = product #9 must be qty >= 2
+  conditionMode        String    @default("all")     // "all" = all conditions required, "any" = at least one
+
+  // General conditions
+  minOrderAmount    Float?                       // minimum cart total to apply
+  maxDiscount       Float?                       // cap for percent discounts (e.g. max 500₽ off)
+
+  // Limits
+  validFrom         DateTime?
+  validUntil        DateTime?
+  maxTotalUses      Int?                         // total uses across all users
+  maxUsesPerUser    Int?                         // per user / session
+  currentUses       Int       @default(0)
+  isActive          Boolean   @default(true)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  uses              PromoCodeUse[]
+  orders            CatalogOrder[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model PromoCodeUse {
+  id          Int       @id @default(autoincrement())
+  promoCodeId Int
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  userId      Int?
+  sessionId   String?
+  orderId     Int?
+  discount    Float                                // how much was discounted
+  createdAt   DateTime  @default(now())
+
+  @@index([promoCodeId])
+  @@index([userId])
+  @@index([sessionId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LEGACY MODELS (bead designer — 3D constructor)
+// ═══════════════════════════════════════════════════════════════════════
+
 model Bead {
   id        Int      @id @default(autoincrement())
   name      String
   nameRu    String
-  shape     String   // "sphere" | "disc" | "star" | "heart" | "cylinder" — mapped in app
+  shape     String
   size      Float
-  material  String   // "wood" | "silicone" | "knit" | "plastic" — mapped in app
+  material  String
   color     String
   createdAt DateTime @default(now())
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  name      String?
-  email     String?   @unique
-  avatar    String?
-  phone     String?
-  createdAt DateTime  @default(now())
-  accounts  Account[]
-  designs   SavedDesign[]
-  favorites Favorite[]
-  reviews   Review[]
-  orders    Order[]
+  id              Int            @id @default(autoincrement())
+  name            String?
+  email           String?        @unique
+  avatar          String?
+  phone           String?
+  telegramChatId  String?        @unique
+  createdAt       DateTime       @default(now())
+  accounts        Account[]
+  designs         SavedDesign[]
+  favorites       Favorite[]
+  reviews         Review[]
+  orders          Order[]
+  cartItems       CartItem[]
+  catalogOrders   CatalogOrder[]
+  productFavorites ProductFavorite[] @relation("ProductFavorites")
+  blogPosts       BlogPost[]
+  blogComments    BlogComment[]
+
+  @@index([telegramChatId])
 }
 
 model Account {
   id         Int    @id @default(autoincrement())
-  provider   String // "yandex" | "vkontakte" | "telegram"
+  provider   String
   providerId String
-  accountId  String? // provider-specific user id (username, etc.)
+  accountId  String?
   userId     Int
   user       User   @relation(fields: [userId], references: [id])
 
   @@unique([provider, providerId])
+  @@index([userId])
 }
 
 model Template {
@@ -60,12 +337,14 @@ model Template {
 model Order {
   id          Int      @id @default(autoincrement())
   designCode  String   @unique
-  designState String   // JSON string of SerializableDesign
-  status      String   @default("new")  // "new" | "processing" | "completed"
+  designState String
+  status      String   @default("new")
   beadCount   Int
   user        User?    @relation(fields: [userId], references: [id])
   userId      Int?
   createdAt   DateTime @default(now())
+
+  @@index([userId])
 }
 
 model SavedDesign {
@@ -77,6 +356,8 @@ model SavedDesign {
   userId     Int
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Favorite {
@@ -90,13 +371,153 @@ model Favorite {
   @@unique([userId, templateId])
 }
 
+model ProductFavorite {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation("ProductFavorites", fields: [userId], references: [id])
+  userId     Int
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  Int
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([productId])
+}
+
 model Review {
   id         Int      @id @default(autoincrement())
   authorName String
-  rating     Int      // 1–5
+  rating     Int
   text       String
   isApproved Boolean  @default(false)
   user       User?    @relation(fields: [userId], references: [id])
   userId     Int?
+  product    Product? @relation(fields: [productId], references: [id])
+  productId  Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId Int?
   createdAt  DateTime @default(now())
+
+  @@index([categoryId])
+  @@index([productId])
+  @@index([isApproved])
+}
+
+// ── Newsletter Subscribers ──────────────────────────────────────────────
+
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  source    String   @default("footer") // "footer" | "landing" | "checkout"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+}
+
+model SiteSettings {
+  id    Int    @id @default(1)
+  key   String @unique
+  value String @db.Text
+
+  @@index([key])
+}
+
+model ProductFaq {
+  id        Int      @id @default(autoincrement())
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  question  String
+  answer    String   @db.Text
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@index([order])
+}
+
+// ── Blog ─────────────────────────────────────────────────────────────────
+
+model BlogCategory {
+  id          Int         @id @default(autoincrement())
+  name        String
+  slug        String      @unique
+  description String?     @db.Text
+  order       Int         @default(0)
+  posts       BlogPost[]
+  createdAt   DateTime    @default(now())
+}
+
+model BlogPost {
+  id             Int             @id @default(autoincrement())
+  title          String
+  slug           String          @unique
+  excerpt        String?         @db.Text
+  content        String          @db.Text       // HTML from Tiptap
+  heroImage      String?         // /uploads/blog/xxx.jpg
+  status         String          @default("draft") // "draft" | "published" | "archived"
+  author         User?           @relation(fields: [authorId], references: [id])
+  authorId       Int?
+  category       BlogCategory?   @relation(fields: [categoryId], references: [id])
+  categoryId     Int?
+  publishedAt    DateTime?
+  readTime       Int             @default(3) // minutes
+  metaTitle      String?
+  metaDescription String?
+  ogImage        String?
+  isPinned       Boolean         @default(false)
+  views          Int             @default(0)
+  tags           BlogPostTag[]
+  images         BlogPostImage[]
+  comments       BlogComment[]
+  relatedProductIds Int[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([isPinned])
+  @@index([slug])
+}
+
+model BlogPostTag {
+  postId Int
+  tag    String @db.VarChar(50)
+
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tag])
+  @@index([tag])
+}
+
+model BlogPostImage {
+  id      Int      @id @default(autoincrement())
+  postId  Int
+  post    BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url     String
+  alt     String?
+  order   Int      @default(0)
+
+  @@index([postId])
+}
+
+model BlogComment {
+  id        Int      @id @default(autoincrement())
+  text      String   @db.Text
+  authorName String
+  authorEmail String?
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    Int?
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    Int
+  parentId  Int?     // reply-to
+  parent    BlogComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   BlogComment[] @relation("CommentReplies")
+  isApproved Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([isApproved])
 }
