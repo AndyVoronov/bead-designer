@@ -237,7 +237,7 @@ export function BlogContent({ content, products }: BlogContentProps) {
               labels,
               datasets: [{
                 data: values,
-                backgroundColor: colors.map(c => c + '30'),
+                backgroundColor: colors.map((c: string) => c + '30'),
                 borderColor: colors,
                 borderWidth: 2,
               }],
