@@ -207,6 +207,14 @@ body {
   color: #1e1b4b;
   margin-bottom: 1rem;
 }
+.blog-hero-title {
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+  color: #1e1b4b;
+  margin-bottom: 1rem;
+}
 .blog-hero-subtitle {
   font-size: 1.125rem;
   font-weight: 300;
