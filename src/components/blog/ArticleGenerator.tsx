@@ -59,50 +59,81 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
     setError("");
 
     abortRef.current = new AbortController();
-    const params = new URLSearchParams({ topic: topic.trim() });
-    if (requirements.trim()) params.set("requirements", requirements.trim());
-    if (!renderVideos) params.set("noVideos", "1");
+    const body: Record<string, string> = { topic: topic.trim() };
+    if (requirements.trim()) body.requirements = requirements.trim();
+    if (!renderVideos) body.noVideos = "1";
 
-    const eventSource = new EventSource(
-      `/api/admin/blog/generate?${params.toString()}`
-    );
-
-    eventSource.onmessage = (event) => {
+    (async () => {
       try {
-        const data = JSON.parse(event.data);
-        setStep(data.step);
-        setProgress(data.progress);
-        if (data.message) setMessage(data.message);
+        const res = await fetch("/api/admin/blog/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: abortRef.current.signal,
+        });
 
-        if (data.step === "done" && data.slug) {
-          eventSource.close();
-          setActive(false);
-          // Small delay so user sees "done"
-          setTimeout(() => {
-            onGenerated({ slug: data.slug, title: data.title });
-          }, 1000);
-        }
-
-        if (data.step === "error") {
-          eventSource.close();
-          setError(data.message || "Ошибка генерации");
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          setError(errText || `Ошибка сервера: ${res.status}`);
           setStep("error");
           setActive(false);
+          return;
         }
-      } catch {
-        // ignore parse errors
+
+        const reader = res.body?.getReader();
+        if (!reader) {
+          setError("Не удалось получить поток данных");
+          setStep("error");
+          setActive(false);
+          return;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const data = JSON.parse(trimmed);
+              setStep(data.step);
+              setProgress(data.progress);
+              if (data.message) setMessage(data.message);
+
+              if (data.step === "done" && data.slug) {
+                setActive(false);
+                setTimeout(() => {
+                  onGenerated({ slug: data.slug, title: data.title });
+                }, 1000);
+                return;
+              }
+
+              if (data.step === "error") {
+                setError(data.message || "Ошибка генерации");
+                setStep("error");
+                setActive(false);
+                return;
+              }
+            } catch {
+              // ignore parse errors
+            }
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError("Потеряно соединение с сервером");
+        setStep("error");
+        setActive(false);
       }
-    };
-
-    eventSource.onerror = () => {
-      eventSource.close();
-      setError("Потеряно соединение с сервером");
-      setStep("error");
-      setActive(false);
-    };
-
-    // Store ref for cleanup
-    (eventSource as any).__abortController = abortRef.current;
+    })();
   };
 
   const handleCancel = () => {
