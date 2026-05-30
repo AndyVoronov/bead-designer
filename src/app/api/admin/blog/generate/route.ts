@@ -1,5 +1,5 @@
 import { isAdmin } from "@/lib/admin-auth";
-import { generateMeta, generateContent, extractAnimationParams, generateAndRenderAnimation, removeVideoPlaceholders } from "@/lib/ai-article";
+import { generateMeta, generateContent, removeVideoPlaceholders } from "@/lib/ai-article";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,20 @@ function transliterateSlug(text: string): string {
     .replace(/-+/g, "-");
 }
 
+// ─── In-memory job store (single admin, no persistence needed) ───
+interface Job {
+  status: "pending" | "done" | "error";
+  message: string;
+  progress: number;
+  slug?: string;
+  title?: string;
+  id?: number;
+  error?: string;
+}
+
+const jobs = new Map<string, Job>();
+
+// ─── POST: start generation (returns immediately) ───
 export async function POST(request: Request) {
   const authResult = await isAdmin(request as any);
   if (!authResult) {
@@ -37,141 +51,87 @@ export async function POST(request: Request) {
     return Response.json({ step: "error", message: "Topic required" }, { status: 400 });
   }
 
-  const encoder = new TextEncoder();
+  const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  jobs.set(jobId, { status: "pending", message: "Запуск генерации...", progress: 5 });
 
-  // Safe enqueue — never throws even if controller is closed
-  let controllerClosed = false;
+  // Fire-and-forget: generation runs in background
+  (async () => {
+    const update = (partial: Partial<Job>) => {
+      const j = jobs.get(jobId);
+      if (j) jobs.set(jobId, { ...j, ...partial });
+    };
 
-  function send(data: Record<string, unknown>) {
-    if (controllerClosed) return;
     try {
-      const line = JSON.stringify(data) + "\n";
-      controller.enqueue(encoder.encode(line));
-    } catch {
-      controllerClosed = true;
+      update({ message: "AI придумывает заголовок и структуру...", progress: 10 });
+      const meta = await generateMeta(topic, requirements);
+
+      update({ message: `Заголовок: «${meta.title}». Пишу контент...`, progress: 25 });
+      let finalContent = await generateContent(topic, meta.title, requirements);
+
+      update({ message: "Оформляю статью...", progress: 55 });
+      finalContent = removeVideoPlaceholders(finalContent);
+
+      update({ message: "Сохраняю в базу данных...", progress: 80 });
+
+      const slug = transliterateSlug(meta.title).slice(0, 80);
+      let finalSlug = slug;
+      let counter = 1;
+      while (true) {
+        const existing = await prisma.blogPost.findUnique({ where: { slug: finalSlug } });
+        if (!existing) break;
+        finalSlug = `${slug}-${counter++}`;
+      }
+
+      const wordCount = finalContent.replace(/<[^>]+>/g, "").split(/\s+/).length;
+      const readTime = Math.max(3, Math.ceil(wordCount / 250));
+
+      const saved = await prisma.blogPost.create({
+        data: {
+          title: meta.title,
+          slug: finalSlug,
+          content: finalContent,
+          excerpt: meta.excerpt,
+          tags: { create: (meta.tags || []).map((tag: string) => ({ tag })) },
+          readTime,
+          status: "published",
+        },
+      });
+
+      console.log(`[article] Published: id=${saved.id}, slug=${saved.slug}`);
+      update({ status: "done", message: "Статья опубликована!", progress: 100, slug: saved.slug, title: saved.title, id: saved.id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Неизвестная ошибка";
+      console.error("[article] Job failed:", msg, err);
+      update({ status: "error", message: "Ошибка генерации", error: msg, progress: 0 });
     }
+  })();
+
+  return Response.json({ jobId, message: "Генерация запущена" });
+}
+
+// ─── GET: poll job status ───
+export async function GET(request: Request) {
+  const authResult = await isAdmin(request as any);
+  if (!authResult) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
-  const VIDEO_UPLOAD_DIR = process.env.VIDEO_UPLOAD_DIR || "/var/www/toydesigner/uploads/blog-animations";
+  const url = new URL(request.url);
+  const jobId = url.searchParams.get("id");
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        send({ step: "planning", progress: 5, message: "Анализирую тему..." });
+  if (!jobId) {
+    return Response.json({ step: "error", message: "Missing job id" }, { status: 400 });
+  }
 
-        // Step 1: Metadata
-        send({ step: "planning", progress: 10, message: "Запрашиваю у AI заголовок и структуру статьи..." });
-        const meta = await generateMeta(topic, requirements);
-        send({ step: "planning", progress: 20, message: `Заголовок: «${meta.title}»` });
+  const job = jobs.get(jobId);
+  if (!job) {
+    return Response.json({ step: "error", message: "Job not found" }, { status: 404 });
+  }
 
-        // Step 2: HTML content
-        send({ step: "writing", progress: 25, message: "Пишу лид-абзац и основные секции..." });
-        const content = await generateContent(topic, meta.title, requirements);
-        send({ step: "writing", progress: 50, message: "Контент готов, оформляю статистику и советы..." });
+  // Auto-cleanup old jobs (keep for 5 min after completion)
+  if (job.status === "done" || job.status === "error") {
+    setTimeout(() => jobs.delete(jobId), 5 * 60 * 1000);
+  }
 
-        // Step 3: LLM-based video rendering with validation
-        let heroVideoUrl: string | null = null;
-        let midVideoUrl: string | null = null;
-        let finalContent = content;
-
-        send({ step: "animating", progress: 55, message: "Извлекаю параметры для видео-анимаций..." });
-
-        try {
-          const params = extractAnimationParams(meta.title, topic, content);
-          const { mkdirSync } = await import("fs");
-          const path = await import("path");
-          const { randomUUID } = await import("crypto");
-
-          mkdirSync(VIDEO_UPLOAD_DIR, { recursive: true });
-
-          const heroFilename = `hero-${randomUUID()}.mp4`;
-          const midFilename = `mid-${randomUUID()}.mp4`;
-          const heroPath = path.join(VIDEO_UPLOAD_DIR, heroFilename);
-          const midPath = path.join(VIDEO_UPLOAD_DIR, midFilename);
-
-          // Hero animation — LLM generate + test render + full render
-          send({ step: "animating", progress: 58, message: "Генерирую hero-анимацию (AI + Remotion)..." });
-          await generateAndRenderAnimation("hero", params, heroPath, (msg) => {
-            send({ step: "animating", progress: 63, message: msg });
-          });
-
-          // Mid animation
-          send({ step: "animating", progress: 72, message: "Генерирую mid-анимацию (AI + Remotion)..." });
-          await generateAndRenderAnimation("mid", params, midPath, (msg) => {
-            send({ step: "animating", progress: 75, message: msg });
-          });
-
-          heroVideoUrl = `/api/uploads/blog-animations/${heroFilename}`;
-          midVideoUrl = `/api/uploads/blog-animations/${midFilename}`;
-
-          finalContent = content.replace(/VIDEO_HERO_URL/g, heroVideoUrl);
-          finalContent = finalContent.replace(/VIDEO_MID_URL/g, midVideoUrl);
-
-          send({ step: "animating", progress: 85, message: "Оба видео готовы!" });
-        } catch (err) {
-          console.error("[article] Animation pipeline failed:", err);
-          send({ step: "animating", progress: 70, message: "⚠️ Видео не создались, продолжаю без них..." });
-          finalContent = removeVideoPlaceholders(finalContent);
-        }
-
-        // Step 4: Save to DB
-        send({ step: "rendering", progress: 88, message: "Сохраняю статью в базу данных..." });
-
-        const slug = transliterateSlug(meta.title).slice(0, 80);
-        let finalSlug = slug;
-        let counter = 1;
-        while (true) {
-          const existing = await prisma.blogPost.findUnique({ where: { slug: finalSlug } });
-          if (!existing) break;
-          finalSlug = `${slug}-${counter++}`;
-        }
-
-        const wordCount = finalContent.replace(/<[^>]+>/g, "").split(/\s+/).length;
-        const readTime = Math.max(3, Math.ceil(wordCount / 250));
-
-        const saved = await prisma.blogPost.create({
-          data: {
-            title: meta.title,
-            slug: finalSlug,
-            content: finalContent,
-            excerpt: meta.excerpt,
-            tags: {
-              create: (meta.tags || []).map((tag: string) => ({ tag })),
-            },
-            readTime,
-            status: "published",
-          },
-        });
-
-        console.log(`[article] Auto-published: id=${saved.id}, slug=${saved.slug}, videos=${!!heroVideoUrl}`);
-
-        send({
-          step: "done",
-          progress: 100,
-          message: "Статья опубликована!",
-          slug: saved.slug,
-          title: saved.title,
-        });
-
-        controller.close();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Неизвестная ошибка";
-        console.error("[article] Generation failed:", message, error);
-        send({ step: "error", progress: 0, message });
-        if (!controllerClosed) controller.close();
-      }
-    },
-    cancel() {
-      controllerClosed = true;
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store, no-cache, must-revalidate",
-      "X-Accel-Buffering": "no",
-      Connection: "keep-alive",
-    },
-  });
+  return Response.json(job);
 }

@@ -1,162 +1,135 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Sparkles, X, CheckCircle2, Video, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 
 interface ArticleGeneratorProps {
   onGenerated: (data: { slug: string; title: string }) => void;
 }
 
-type StepId = "planning" | "writing" | "animating" | "rendering" | "done" | "error";
-
-interface StepInfo {
-  id: StepId;
-  icon: string;
-  label: string;
-}
-
-const STEPS: StepInfo[] = [
-  { id: "planning", icon: "🧠", label: "Планирование" },
-  { id: "writing", icon: "✍️", label: "Написание контента" },
-  { id: "animating", icon: "🎬", label: "Создание анимаций" },
-  { id: "rendering", icon: "🎞", label: "Рендер видео" },
-];
-
-function getStepOrder(step: StepId): number {
-  const order: Record<string, number> = {
-    planning: 1,
-    writing: 2,
-    animating: 3,
-    rendering: 4,
-    done: 5,
-    error: -1,
-  };
-  return order[step] || 0;
+interface PollResult {
+  status: "pending" | "done" | "error";
+  message: string;
+  progress: number;
+  slug?: string;
+  title?: string;
+  error?: string;
 }
 
 export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps) {
-  const router = useRouter();
   const [topic, setTopic] = useState("");
   const [requirements, setRequirements] = useState("");
-  const [renderVideos, setRenderVideos] = useState(true);
-
-  // Generation state
   const [active, setActive] = useState(false);
-  const [step, setStep] = useState<StepId | "idle">("idle");
-  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<"idle" | "generating" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const abortRef = useRef<AbortController | null>(null);
+  const [progress, setProgress] = useState(0);
+  const jobIdRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
 
   const handleGenerate = () => {
     if (!topic.trim() || topic.trim().length < 3) return;
 
     setActive(true);
-    setStep("planning");
+    setStatus("generating");
+    setMessage("Запускаю генерацию...");
     setProgress(5);
-    setMessage("Подключаюсь к серверу...");
     setError("");
 
-    abortRef.current = new AbortController();
     const body: Record<string, string> = { topic: topic.trim() };
     if (requirements.trim()) body.requirements = requirements.trim();
-    if (!renderVideos) body.noVideos = "1";
 
+    // Step 1: POST to start job
     (async () => {
       try {
         const res = await fetch("/api/admin/blog/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-          signal: abortRef.current.signal,
         });
 
+        const data = await res.json();
+
         if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-          setError(errText || `Ошибка сервера: ${res.status}`);
-          setStep("error");
+          setError(data.message || `Ошибка: ${res.status}`);
+          setStatus("error");
           setActive(false);
           return;
         }
 
-        const reader = res.body?.getReader();
-        if (!reader) {
-          setError("Не удалось получить поток данных");
-          setStep("error");
-          setActive(false);
-          return;
-        }
+        jobIdRef.current = data.jobId;
 
-        const decoder = new TextDecoder();
-        let buffer = "";
+        // Step 2: poll for completion
+        pollTimerRef.current = setInterval(async () => {
+          if (!jobIdRef.current) return;
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+          try {
+            const pollRes = await fetch(`/api/admin/blog/generate?id=${jobIdRef.current}`);
+            const job: PollResult = await pollRes.json();
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+            setMessage(job.message);
+            setProgress(job.progress);
 
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-            try {
-              const data = JSON.parse(trimmed);
-              setStep(data.step);
-              setProgress(data.progress);
-              if (data.message) setMessage(data.message);
-
-              if (data.step === "done" && data.slug) {
-                setActive(false);
-                setTimeout(() => {
-                  onGenerated({ slug: data.slug, title: data.title });
-                }, 1000);
-                return;
-              }
-
-              if (data.step === "error") {
-                setError(data.message || "Ошибка генерации");
-                setStep("error");
-                setActive(false);
-                return;
-              }
-            } catch {
-              // ignore parse errors
+            if (job.status === "done") {
+              stopPolling();
+              setStatus("done");
+              setMessage(`Статья «${job.title}» опубликована!`);
+              setActive(false);
+              setTimeout(() => {
+                onGenerated({ slug: job.slug!, title: job.title! });
+              }, 1500);
+            } else if (job.status === "error") {
+              stopPolling();
+              setError(job.error || job.message || "Ошибка генерации");
+              setStatus("error");
+              setActive(false);
             }
+          } catch {
+            // Network error on poll — don't kill the job, just retry next tick
           }
-        }
-      } catch (err: unknown) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError("Потеряно соединение с сервером");
-        setStep("error");
+        }, 2000);
+      } catch {
+        setError("Не удалось подключиться к серверу");
+        setStatus("error");
         setActive(false);
       }
     })();
   };
 
   const handleCancel = () => {
-    abortRef.current?.abort();
+    stopPolling();
+    jobIdRef.current = null;
     setActive(false);
-    setStep("idle");
-    setProgress(0);
+    setStatus("idle");
     setMessage("");
+    setProgress(0);
   };
 
   const handleReset = () => {
-    setStep("idle");
-    setProgress(0);
+    setStatus("idle");
     setMessage("");
     setError("");
     setTopic("");
     setRequirements("");
+    setProgress(0);
   };
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* ── Idle form ── */}
-      {!active && (step === "idle" || step === "error") && (
+      {/* Idle / Error form */}
+      {!active && (status === "idle" || status === "error") && (
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -185,60 +158,39 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
             />
           </div>
 
-          {/* Render videos toggle */}
-          <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <Video className="w-5 h-5 text-gray-500" />
-              <div>
-                <p className="text-sm font-medium text-gray-700">MP4-анимации</p>
-                <p className="text-xs text-gray-400">Remotion рендер ~2 мин на анимацию</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setRenderVideos(!renderVideos)}
-              className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer border-none ${
-                renderVideos ? "bg-purple-500" : "bg-gray-300"
-              }`}
-              role="switch"
-              aria-checked={renderVideos}
-            >
-              <div
-                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                  renderVideos ? "translate-x-5" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Error message */}
-          {step === "error" && error && (
+          {status === "error" && error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
               {error}
             </div>
           )}
 
           <button
-            onClick={handleGenerate}
-            disabled={topic.trim().length < 3}
+            onClick={status === "error" ? handleReset : handleGenerate}
+            disabled={status === "error" ? false : topic.trim().length < 3}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-rose-500 rounded-xl hover:from-purple-600 hover:to-rose-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none shadow-sm"
           >
-            <Sparkles className="w-4 h-4" />
-            Сгенерировать статью
+            {status === "error" ? (
+              "Попробовать снова"
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Сгенерировать статью
+              </>
+            )}
           </button>
         </div>
       )}
 
-      {/* ── Active generation ── */}
-      {active && step !== "done" && step !== "error" && step !== "idle" && (
+      {/* Generating */}
+      {active && status === "generating" && (
         <div className="space-y-5">
-          {/* Progress bar */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700 truncate mr-2">
                 {message}
               </span>
               <span className="text-sm text-gray-400 whitespace-nowrap">
-                {Math.round(progress)}%
+                {progress}%
               </span>
             </div>
             <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -249,86 +201,30 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
             </div>
           </div>
 
-          {/* Pipeline steps */}
-          <div className="space-y-2">
-            {STEPS.filter(
-              (s) => renderVideos || (s.id !== "animating" && s.id !== "rendering")
-            ).map((item) => {
-              const currentOrder = getStepOrder(step as StepId);
-              const itemOrder = getStepOrder(item.id);
-              const isCurrent = step === item.id;
-              const isDone = currentOrder > itemOrder;
-
-              return (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                    isCurrent
-                      ? "bg-purple-50 border border-purple-200"
-                      : isDone
-                        ? "bg-green-50 border border-green-200"
-                        : "bg-gray-50 border border-gray-100"
-                  }`}
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  <span
-                    className={`text-sm font-medium flex-1 ${
-                      isCurrent
-                        ? "text-purple-700"
-                        : isDone
-                          ? "text-green-700"
-                          : "text-gray-400"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                  {isDone && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />}
-                  {isCurrent && <Loader2 className="w-4 h-4 text-purple-500 shrink-0 animate-spin" />}
-                </div>
-              );
-            })}
-
-            {/* DB save step (always last) */}
-            <div
-              className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                step === "rendering"
-                  ? "bg-purple-50 border border-purple-200"
-                  : getStepOrder(step as StepId) > getStepOrder("rendering")
-                    ? "bg-green-50 border border-green-200"
-                    : "bg-gray-50 border border-gray-100"
-              }`}
-            >
-              <span className="text-lg">💾</span>
-              <span className={`text-sm font-medium flex-1 ${
-                step === "rendering" ? "text-purple-700"
-                  : getStepOrder(step as StepId) > getStepOrder("rendering") ? "text-green-700"
-                  : "text-gray-400"
-              }`}>
-                Сохранение и публикация
-              </span>
-              {getStepOrder(step as StepId) > getStepOrder("rendering") && <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />}
-              {step === "rendering" && <Loader2 className="w-4 h-4 text-purple-500 shrink-0 animate-spin" />}
-            </div>
+          <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+            <Loader2 className="w-4 h-4 text-yellow-600 animate-spin shrink-0" />
+            <span className="text-xs text-yellow-700">
+              Генерация идёт на сервере. Можно закрыть вкладку и вернуться позже — статья будет сохранена.
+            </span>
           </div>
 
-          {/* Cancel */}
           <button
             onClick={handleCancel}
             className="w-full px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors cursor-pointer border-none"
           >
-            Отменить
+            Прекратить отслеживание
           </button>
         </div>
       )}
 
-      {/* ── Done ── */}
-      {step === "done" && (
+      {/* Done */}
+      {status === "done" && (
         <div className="text-center py-8">
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-8 h-8 text-green-500" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-1">Статья опубликована!</h3>
-          <p className="text-sm text-gray-500">Перенаправляю на статью...</p>
+          <p className="text-sm text-gray-500">{message}</p>
         </div>
       )}
     </div>
