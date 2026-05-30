@@ -855,11 +855,16 @@ export async function generateAndRenderAnimation(
   mkdirSync(path.join(REMOTION_DIR, "src"), { recursive: true });
   mkdirSync(VIDEO_UPLOAD_DIR, { recursive: true });
 
-  // Step 1: Generate TSX via LLM
+  // Step 1: Generate TSX via LLM (with retry — LLM sometimes returns empty)
   onProgress?.(`Запрашиваю у AI ${label}-анимацию...`);
   const messages = buildAnimationPrompt(type, params);
-  let tsxCode = await callLLM(messages, 4096);
-  tsxCode = extractTsxCode(tsxCode);
+  let tsxCode = "";
+  for (let retry = 0; retry < 3; retry++) {
+    tsxCode = await callLLM(messages, 4096);
+    tsxCode = extractTsxCode(tsxCode);
+    if (tsxCode.length >= 100) break;
+    console.warn(`[article] ${label} LLM returned ${tsxCode.length} chars (attempt ${retry + 1}/3), retrying...`);
+  }
 
   if (tsxCode.length < 100) {
     throw new Error(`LLM returned too little code for ${label} animation (${tsxCode.length} chars)`);
