@@ -46,6 +46,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const topic = body?.topic?.trim();
   const requirements = body?.requirements?.trim() || undefined;
+  const productIds: number[] = Array.isArray(body?.productIds) ? body.productIds : [];
 
   if (!topic || topic.length < 3) {
     return Response.json({ step: "error", message: "Topic required" }, { status: 400 });
@@ -65,8 +66,33 @@ export async function POST(request: Request) {
       update({ message: "AI придумывает заголовок и структуру...", progress: 10 });
       const meta = await generateMeta(topic, requirements);
 
+      // Load products if productIds provided
+      let productsInfo: { name: string; slug: string; basePrice: number; imageUrl: string; shortDescription: string | null; recommendedAge: string | null }[] | undefined;
+      if (productIds.length > 0) {
+        const dbProducts = await prisma.product.findMany({
+          where: { id: { in: productIds } },
+          select: {
+            name: true,
+            slug: true,
+            basePrice: true,
+            recommendedAge: true,
+            shortDescription: true,
+            images: { select: { url: true }, take: 1, orderBy: { order: "asc" } },
+          },
+        });
+
+        productsInfo = dbProducts.map((p) => ({
+          name: p.name,
+          slug: p.slug,
+          basePrice: p.basePrice,
+          imageUrl: p.images[0] ? `/api${p.images[0].url}` : "",
+          shortDescription: p.shortDescription,
+          recommendedAge: p.recommendedAge,
+        }));
+      }
+
       update({ message: `Заголовок: «${meta.title}». Пишу контент...`, progress: 25 });
-      let finalContent = await generateContent(topic, meta.title, requirements);
+      let finalContent = await generateContent(topic, meta.title, requirements, productsInfo);
 
       update({ message: "Оформляю статью...", progress: 55 });
       finalContent = removeVideoPlaceholders(finalContent);

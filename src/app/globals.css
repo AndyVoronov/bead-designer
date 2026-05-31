@@ -526,6 +526,50 @@ body {
   box-shadow: 0 8px 25px -5px rgba(168, 85, 247, 0.5);
 }
 
+/* CTA product cards */
+.blog-cta-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+.blog-cta-product-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  text-decoration: none;
+  transition: all 0.2s;
+  max-width: 280px;
+}
+.blog-cta-product-card:hover {
+  border-color: #a855f7;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.15);
+  transform: translateY(-1px);
+}
+.blog-cta-product-card img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+}
+.blog-cta-product-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #1f2937;
+}
+.blog-cta-product-price {
+  display: block;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #7c3aed;
+}
+
 /* Video sections */
 .blog-video-section {
   width: calc(100% + 3rem);
