@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -40,9 +40,10 @@ function sanitizeHtml(html: string): string {
   clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, "");
   // Remove javascript: URLs
   clean = clean.replace(/href\s*=\s*["']?\s*javascript:/gi, 'href="#"');
-  // Remove data: URLs in src attributes (potential XSS vectors)
+  // Remove data: URLs in src attributes (potential XSS vectors) — but allow data:image
   clean = clean.replace(/src\s*=\s*["']?\s*data:(?!image\/)/gi, 'src=""');
-  // Remove <iframe>, <object>, <embed>, <form>, <input> tags
+  // Remove <iframe>, <object>, <embed>, <form>, <input>, <textarea>, <select>, <button>, <meta>, <link> tags
+  // NOTE: do NOT remove <canvas> — Chart.js needs it
   clean = clean.replace(/<(iframe|object|embed|form|input|textarea|select|button|meta|link)\b[^>]*\/?>/gi, "");
   // Remove <base> tag
   clean = clean.replace(/<base\b[^>]*\/?>/gi, "");
@@ -54,6 +55,20 @@ function sanitizeHtml(html: string): string {
 export function BlogContent({ content, products }: BlogContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
+  const [scriptsLoaded, setScriptsLoaded] = useState(false);
+
+  // Track when GSAP and Chart.js are available
+  useEffect(() => {
+    const checkScripts = setInterval(() => {
+      const hasGsap = !!(window as any).gsap && !!(window as any).ScrollTrigger;
+      const hasChart = !!(window as any).Chart;
+      if (hasGsap && hasChart) {
+        clearInterval(checkScripts);
+        setScriptsLoaded(true);
+      }
+    }, 100);
+    return () => clearInterval(checkScripts);
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -128,89 +143,98 @@ export function BlogContent({ content, products }: BlogContentProps) {
 
       gsap.registerPlugin(ScrollTrigger);
 
-      // Hero entrance animation
+      // Hero entrance animation — use fromTo with explicit clearProps
       const hero = container.querySelector('.blog-hero');
       if (hero) {
         const tl = gsap.timeline();
         const badge = hero.querySelector('.blog-hero-badge');
         const h1 = hero.querySelector('h1');
+        const heroTitle = hero.querySelector('.blog-hero-title');
         const subtitle = hero.querySelector('.blog-hero-subtitle');
         const meta = hero.querySelector('.blog-hero-meta');
 
-        if (badge) tl.from(badge, { opacity: 0, y: 20, duration: 0.6 }, 0);
-        if (h1) tl.from(h1, { opacity: 0, y: 30, duration: 0.8 }, 0.2);
-        if (subtitle) tl.from(subtitle, { opacity: 0, y: 20, duration: 0.6 }, 0.5);
-        if (meta) tl.from(meta, { opacity: 0, duration: 0.5 }, 0.7);
+        if (badge) tl.fromTo(badge, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, clearProps: "all" }, 0);
+        if (h1) tl.fromTo(h1, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, clearProps: "all" }, 0.2);
+        if (heroTitle) tl.fromTo(heroTitle, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, clearProps: "all" }, 0.2);
+        if (subtitle) tl.fromTo(subtitle, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, clearProps: "all" }, 0.5);
+        if (meta) tl.fromTo(meta, { opacity: 0 }, { opacity: 1, duration: 0.5, clearProps: "all" }, 0.7);
       }
 
-      // Stagger list items
+      // Stagger list items — use fromTo with clearProps to ensure elements always visible after animation
       container.querySelectorAll('.blog-stagger-list').forEach((list) => {
         const items = list.querySelectorAll('li[data-stagger]');
         items.forEach((item) => {
           const stagger = parseInt((item as HTMLElement).dataset.stagger || '0', 10);
-          gsap.from(item, {
-            scrollTrigger: { trigger: item, start: 'top 85%', toggleActions: 'play none none none' },
-            opacity: 0,
-            x: stagger % 2 === 0 ? -20 : 20,
-            duration: 0.5,
-            delay: stagger * 0.1,
-          });
+          gsap.fromTo(item,
+            { opacity: 0, x: stagger % 2 === 0 ? -20 : 20 },
+            {
+              opacity: 1, x: 0, duration: 0.5, delay: stagger * 0.1,
+              scrollTrigger: { trigger: item, start: 'top 85%', toggleActions: 'play none none none', once: true },
+              clearProps: "all",
+            }
+          );
         });
       });
 
       // Tip cards stagger
       container.querySelectorAll('.blog-tips-grid').forEach((grid) => {
         const cards = grid.querySelectorAll('.blog-tip-card');
-        gsap.from(cards, {
-          scrollTrigger: { trigger: grid, start: 'top 80%' },
-          opacity: 0,
-          y: 30,
-          duration: 0.5,
-          stagger: 0.1,
-        });
+        gsap.fromTo(cards,
+          { opacity: 0, y: 30 },
+          {
+            opacity: 1, y: 0, duration: 0.5, stagger: 0.1,
+            scrollTrigger: { trigger: grid, start: 'top 80%', once: true },
+            clearProps: "all",
+          }
+        );
       });
 
       // Timeline items
       container.querySelectorAll('.blog-timeline-item').forEach((item) => {
-        gsap.from(item, {
-          scrollTrigger: { trigger: item, start: 'top 85%' },
-          opacity: 0,
-          x: -30,
-          duration: 0.6,
-        });
+        gsap.fromTo(item,
+          { opacity: 0, x: -30 },
+          {
+            opacity: 1, x: 0, duration: 0.6,
+            scrollTrigger: { trigger: item, start: 'top 85%', once: true },
+            clearProps: "all",
+          }
+        );
       });
 
       // Step items
       container.querySelectorAll('.blog-step-item').forEach((item, idx) => {
-        gsap.from(item, {
-          scrollTrigger: { trigger: item, start: 'top 85%' },
-          opacity: 0,
-          x: -20,
-          duration: 0.5,
-          delay: idx * 0.1,
-        });
+        gsap.fromTo(item,
+          { opacity: 0, x: -20 },
+          {
+            opacity: 1, x: 0, duration: 0.5, delay: idx * 0.1,
+            scrollTrigger: { trigger: item, start: 'top 85%', once: true },
+            clearProps: "all",
+          }
+        );
       });
 
       // Pull quote
       container.querySelectorAll('.blog-pullquote').forEach((quote) => {
-        gsap.from(quote, {
-          scrollTrigger: { trigger: quote, start: 'top 80%' },
-          opacity: 0,
-          scale: 0.95,
-          duration: 0.7,
-          ease: 'back.out(1.7)',
-        });
+        gsap.fromTo(quote,
+          { opacity: 0, scale: 0.95 },
+          {
+            opacity: 1, scale: 1, duration: 0.7, ease: 'back.out(1.7)',
+            scrollTrigger: { trigger: quote, start: 'top 80%', once: true },
+            clearProps: "all",
+          }
+        );
       });
 
       // Stats section
       container.querySelectorAll('.blog-stats').forEach((stats) => {
-        gsap.from(stats.querySelectorAll('.blog-stat-item'), {
-          scrollTrigger: { trigger: stats, start: 'top 80%' },
-          opacity: 0,
-          y: 20,
-          duration: 0.5,
-          stagger: 0.15,
-        });
+        gsap.fromTo(stats.querySelectorAll('.blog-stat-item'),
+          { opacity: 0, y: 20 },
+          {
+            opacity: 1, y: 0, duration: 0.5, stagger: 0.15,
+            scrollTrigger: { trigger: stats, start: 'top 80%', once: true },
+            clearProps: "all",
+          }
+        );
       });
     };
 
@@ -315,17 +339,14 @@ export function BlogContent({ content, products }: BlogContentProps) {
       container.querySelectorAll('.blog-reveal').forEach((el) => revealObserver.observe(el));
     };
 
-    // Initialize everything
-    // Small delay to ensure external scripts are loaded
-    const timer = setTimeout(() => {
+    // Initialize only when scripts are loaded
+    if (scriptsLoaded) {
       initGSAP();
       initCharts();
       initStatCounters();
       initReveal();
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [content, products, toast]);
+    }
+  }, [content, products, toast, scriptsLoaded]);
 
   const safeContent = sanitizeHtml(content);
 
