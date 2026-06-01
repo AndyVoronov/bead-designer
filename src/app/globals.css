@@ -343,8 +343,8 @@ body {
 }
 .blog-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
   text-align: center;
 }
 .blog-stats .blog-stat-item {
@@ -365,9 +365,14 @@ body {
 
 /* Chart container */
 .blog-chart-container {
-  margin-top: 2rem;
+  margin-top: 1.5rem;
   max-height: 320px;
   position: relative;
+  display: flex;
+  justify-content: center;
+}
+.blog-chart-container canvas {
+  max-width: 20rem;
 }
 
 /* Steps section */

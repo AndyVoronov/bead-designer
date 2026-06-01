@@ -254,16 +254,18 @@ export function BlogPageClient({
       )}
 
       {/* Hero — compact */}
-      <section className="bg-gradient-to-br from-rose-50 via-pink-50 to-rose-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-10 text-center">
-          <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm text-rose-500 text-xs font-bold px-3 py-1.5 rounded-full mb-3 shadow-sm">
-            {isTagPage ? <Tag size={14} /> : <BookOpen size={14} />}
-            {isTagPage ? "Тег" : "Полезные статьи"}
+      {(isTagPage || activeCategorySlug || activeCategoryName) && (
+        <section className="bg-gradient-to-br from-rose-50 via-pink-50 to-rose-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-10 text-center">
+            <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm text-rose-500 text-xs font-bold px-3 py-1.5 rounded-full mb-3 shadow-sm">
+              {isTagPage ? <Tag size={14} /> : <BookOpen size={14} />}
+              {isTagPage ? "Тег" : "Полезные статьи"}
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{heroHeading}</h1>
+            <p className="mt-2 text-gray-500 max-w-xl mx-auto text-sm leading-relaxed">{heroSubtitle}</p>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{heroHeading}</h1>
-          <p className="mt-2 text-gray-500 max-w-xl mx-auto text-sm leading-relaxed">{heroSubtitle}</p>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Main content: sidebar + posts */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex gap-6">

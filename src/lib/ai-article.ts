@@ -987,7 +987,7 @@ export function removeVideoPlaceholders(content: string): string {
    Blog category helpers
    ════════════════════════════════════════════════════════════ */
 
-const CATEGORY_BASE_URL = process.env.CATEGORY_BASE_URL || "http://localhost:3000";
+const CATEGORY_BASE_URL = process.env.CATEGORY_BASE_URL || process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 export async function getAllCategorySlugs(): Promise<{ slug: string; name: string }[]> {
   try {

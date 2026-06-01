@@ -57,16 +57,21 @@ export function BlogContent({ content, products }: BlogContentProps) {
   const toast = useToast();
   const [scriptsLoaded, setScriptsLoaded] = useState(false);
 
-  // Track when GSAP and Chart.js are available
+  // Track when GSAP and Chart.js are available — poll with retry
   useEffect(() => {
+    let attempts = 0;
+    const maxAttempts = 20; // 20 * 250ms = 5s max wait
     const checkScripts = setInterval(() => {
+      attempts++;
       const hasGsap = !!(window as any).gsap && !!(window as any).ScrollTrigger;
       const hasChart = !!(window as any).Chart;
-      if (hasGsap && hasChart) {
+      if ((hasGsap && hasChart) || attempts >= maxAttempts) {
         clearInterval(checkScripts);
-        setScriptsLoaded(true);
+        if (hasGsap && hasChart) {
+          setScriptsLoaded(true);
+        }
       }
-    }, 100);
+    }, 250);
     return () => clearInterval(checkScripts);
   }, []);
 
@@ -347,17 +352,30 @@ export function BlogContent({ content, products }: BlogContentProps) {
     if (scriptsLoaded) {
       initGSAP();
       initCharts();
+    } else {
+      // Poll for scripts with retry — CDN scripts may not be ready yet
+      let chartAttempts = 0;
+      const maxChartAttempts = 10;
+      const chartPoll = setInterval(() => {
+        chartAttempts++;
+        const hasGsap = !!(window as any).gsap && !!(window as any).ScrollTrigger;
+        const hasChart = !!(window as any).Chart;
+        if (hasGsap && hasChart) {
+          clearInterval(chartPoll);
+          initGSAP();
+          initCharts();
+        } else if (chartAttempts >= maxChartAttempts) {
+          clearInterval(chartPoll);
+          // Try whatever is available
+          if (hasGsap) initGSAP();
+          if (hasChart) initCharts();
+        }
+      }, 500);
+      // Store for cleanup
+      return () => clearInterval(chartPoll);
     }
 
-    // Fallback: retry GSAP/Chart.js init after 2s in case CDN was slow on first load
-    const fallbackTimer = setTimeout(() => {
-      const gsap = (window as any).gsap;
-      const Chart = (window as any).Chart;
-      if (gsap) initGSAP();
-      if (Chart) initCharts();
-    }, 2000);
-
-    return () => clearTimeout(fallbackTimer);
+    return undefined;
   }, [content, products, toast, scriptsLoaded]);
 
   const safeContent = sanitizeHtml(content);

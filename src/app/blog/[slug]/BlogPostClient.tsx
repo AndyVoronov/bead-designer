@@ -90,7 +90,7 @@ export function BlogPostClient({
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <PageHeader backHref="/blog" title="Блог" cartCount={cartCount} />
+      <PageHeader backHref="/blog" title="Блог" cartCount={cartCount} showProfile showCatalog />
 
       {/* JSON-LD */}
       <script
