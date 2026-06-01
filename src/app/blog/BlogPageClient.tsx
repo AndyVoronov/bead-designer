@@ -54,7 +54,7 @@ export function BlogPageClient({
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <PageHeader backHref="/" title="Блог" cartCount={cartCount} />
+      <PageHeader backHref="/" title="Блог" cartCount={cartCount} showProfile showCatalog />
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-rose-50 via-pink-50 to-rose-50">

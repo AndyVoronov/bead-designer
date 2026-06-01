@@ -452,6 +452,7 @@ function CatalogContent({ initialCategory }: CatalogPageProps) {
             : undefined
         }
         cartCount={cartCount}
+        showProfile
       >
         {/* Sort dropdown (desktop) */}
         <div className="hidden sm:block">
