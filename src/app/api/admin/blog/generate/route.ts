@@ -1,6 +1,7 @@
 import { isAdmin } from "@/lib/admin-auth";
 import { generateMeta, generateContent, removeVideoPlaceholders } from "@/lib/ai-article";
 import { prisma } from "@/lib/prisma";
+import { searchPexels, downloadPexelsImage, slugToSearchQuery } from "@/lib/pexels";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,53 @@ export async function POST(request: Request) {
       });
 
       console.log(`[article] Published: id=${saved.id}, slug=${saved.slug}`);
+
+      // ── Pexels hero image (fire-and-forget, non-blocking) ──
+      try {
+        update({ message: "Подбираю обложку для статьи...", progress: 85 });
+        const searchQuery = slugToSearchQuery(finalSlug);
+        console.log(`[pexels] Searching for: "${searchQuery}"`);
+        const photos = await searchPexels(searchQuery, 5);
+
+        if (photos.length > 0) {
+          const photo = photos[0];
+          const imageUrl = photo.src.large2x || photo.src.original;
+
+          // Save to uploads/blog/
+          const UPLOAD_DIR = "/opt/bead-designer/uploads/blog";
+          const timestamp = Date.now();
+          const dbPath = `/uploads/blog/hero-${timestamp}.jpg`;
+          const fullPath = `${UPLOAD_DIR}/hero-${timestamp}.jpg`;
+
+          console.log(`[pexels] Downloading photo ${photo.id} to ${fullPath}`);
+          await downloadPexelsImage(imageUrl, fullPath);
+
+          // Update heroImage in DB
+          await prisma.blogPost.update({
+            where: { id: saved.id },
+            data: { heroImage: dbPath },
+          });
+
+          // Also inject background image into the blog-hero div in content
+          const contentWithBg = finalContent.replace(
+            /<div class="blog-hero([^>]*)">/,
+            `<div class="blog-hero has-image$1" style="background-image: url('/api${dbPath}')">`
+          );
+          await prisma.blogPost.update({
+            where: { id: saved.id },
+            data: { content: contentWithBg },
+          });
+
+          console.log(`[pexels] Hero image set: ${dbPath}`);
+          saved.heroImage = dbPath;
+        } else {
+          console.log(`[pexels] No photos found for "${searchQuery}"`);
+        }
+      } catch (pexErr) {
+        // Pexels failure must NOT break article generation
+        console.warn("[pexels] Hero image fetch failed (article still published):", pexErr);
+      }
+
       update({ status: "done", message: "Статья опубликована!", progress: 100, slug: saved.slug, title: saved.title, id: saved.id });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Неизвестная ошибка";

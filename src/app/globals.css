@@ -228,6 +228,27 @@ body {
   color: #94a3b8;
 }
 
+/* Hero with background image (Pexels) */
+.blog-hero.has-image {
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  padding: 3rem 1.5rem 2rem;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.blog-hero.has-image::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,248,245,0.92), rgba(255,248,245,0.85));
+  z-index: 0;
+}
+.blog-hero.has-image > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Gradient text */
 .blog-gradient-text {
   background: linear-gradient(135deg, #a855f7, #f43f5e);
