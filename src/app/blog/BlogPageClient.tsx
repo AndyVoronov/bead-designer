@@ -1,18 +1,20 @@
 "use client";
 
+import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { useCartCount } from "@/hooks/useCartCount";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { BlogCard, type BlogPostListItem } from "@/components/blog/BlogCard";
 import { Pagination } from "@/components/blog/Pagination";
 import { BlogSubscribeForm } from "@/components/blog/BlogSubscribeForm";
-import { Mail, BookOpen, Tag } from "lucide-react";
+import { Mail, BookOpen, Tag, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface BlogCategory {
   id: number;
   name: string;
   slug: string;
   postCount: number;
+  description?: string | null;
 }
 
 interface BlogPageClientProps {
@@ -25,6 +27,40 @@ interface BlogPageClientProps {
   heroTitle?: string;
 }
 
+const FALLBACK_EMOJI: Record<string, string> = {
+  "razvitie-malysha": "🧒",
+  "pervye-shagi": "👶",
+  "pitanie-i-prikorm": "🍼",
+  "son-i-rezhim": "😴",
+  "igry-i-razvlecheniya": "🎮",
+  "zdorovie-malysha": "🩺",
+  "bezopasnost": "🛡️",
+  "psikhologiya-i-vospitanie": "🧠",
+  "protezivanie-zubov": "🦷",
+  "tvorchestvo-i-rukodelie": "🎨",
+  "podgotovka-k-rodam": "🤰",
+  "ukhod-za-malyshom": "🧴",
+  "vybor-igrush": "🧸",
+  "progulki-i-puteshestviya": "🚶",
+  "razvivayushchie-zanyatiya": "📚",
+  "odezhda-i-garderob": "👗",
+  "recepty-dlya-malyshei": "🥣",
+  "mamin-otdykh": "☕",
+  "gotovimsya-k-shkole": "🏫",
+  "podarki-i-idei": "🎁",
+};
+
+function getEmoji(cat: BlogCategory): string {
+  if (cat.description) {
+    // description stores just the emoji as first char
+    const first = cat.description.trim()[0];
+    if (first && /(\p{Emoji_Presentation}|\p{Extended_Pictographic})/u.test(first)) {
+      return first;
+    }
+  }
+  return FALLBACK_EMOJI[cat.slug] || "📌";
+}
+
 export function BlogPageClient({
   initialPosts,
   initialCategories,
@@ -35,6 +71,9 @@ export function BlogPageClient({
   heroTitle,
 }: BlogPageClientProps) {
   const { cartCount } = useCartCount();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   // Determine the base path for pagination
   const basePath = activeCategorySlug
@@ -51,6 +90,38 @@ export function BlogPageClient({
     : activeCategoryName
       ? `Статьи в категории «${activeCategoryName}»`
       : "Полезные статьи о развитии малышей, уходе за изделиями и выборе подарков";
+
+  // Scroll detection for fade masks on mobile
+  const updateScrollButtons = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  };
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollButtons();
+    el.addEventListener("scroll", updateScrollButtons, { passive: true });
+    window.addEventListener("resize", updateScrollButtons);
+    return () => {
+      el.removeEventListener("scroll", updateScrollButtons);
+      window.removeEventListener("resize", updateScrollButtons);
+    };
+  }, []);
+
+  const scrollBy = (direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = direction === "left" ? -200 : 200;
+    el.scrollBy({ left: amount, behavior: "smooth" });
+  };
+
+  const categoriesWithEmoji = initialCategories.map((cat) => ({
+    ...cat,
+    emoji: getEmoji(cat),
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -72,36 +143,110 @@ export function BlogPageClient({
         </div>
       </section>
 
-      {/* Categories */}
-      {!isTagPage && initialCategories.length > 0 && (
+      {/* Categories — Desktop: 2 rows of 10, Mobile: horizontal scroll */}
+      {!isTagPage && categoriesWithEmoji.length > 0 && (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 -mt-5">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {/* Desktop grid: 2 rows × 10 columns */}
+          <div className="hidden lg:grid lg:grid-cols-10 lg:gap-2.5">
+            {/* "Все" button first */}
             <Link
               href="/blog"
-              className={`shrink-0 px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
+              className={`flex flex-col items-center justify-center gap-1 py-3 px-1 rounded-2xl transition-all duration-200 ${
                 !activeCategorySlug
-                  ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600"
-                  : "bg-white border border-gray-200 text-gray-600 hover:border-rose-300 hover:text-rose-500"
+                  ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md shadow-rose-200"
+                  : "bg-white text-gray-600 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
               }`}
             >
-              Все
+              <span className="text-xl">✨</span>
+              <span className="text-xs font-semibold leading-tight text-center">Все</span>
             </Link>
-            {initialCategories.map((cat) => (
+            {categoriesWithEmoji.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/blog/category/${cat.slug}`}
-                className={`shrink-0 px-4 py-2 text-sm font-medium rounded-full transition-colors ${
+                className={`flex flex-col items-center justify-center gap-1 py-3 px-1 rounded-2xl transition-all duration-200 ${
                   activeCategorySlug === cat.slug
-                    ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600"
-                    : "bg-white border border-gray-200 text-gray-600 hover:border-rose-300 hover:text-rose-500"
+                    ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md shadow-rose-200"
+                    : "bg-white text-gray-600 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
                 }`}
               >
-                {cat.name}
-                <span className="ml-1.5 text-xs text-gray-400">
-                  {cat.postCount}
-                </span>
+                <span className="text-xl">{cat.emoji}</span>
+                <span className="text-[11px] font-medium leading-tight text-center">{cat.name}</span>
+                {cat.postCount > 0 && (
+                  <span className={`text-[10px] ${activeCategorySlug === cat.slug ? "text-white/70" : "text-gray-400"}`}>
+                    {cat.postCount}
+                  </span>
+                )}
               </Link>
             ))}
+          </div>
+
+          {/* Mobile + Tablet: horizontal scroll */}
+          <div className="lg:hidden relative">
+            {/* Left fade mask + arrow */}
+            {canScrollLeft && (
+              <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center">
+                <div className="absolute left-0 inset-y-0 w-8 bg-gradient-to-r from-gray-50/95 to-transparent pointer-events-none" />
+                <button
+                  onClick={() => scrollBy("left")}
+                  className="relative ml-1 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md text-gray-500 hover:text-rose-500 transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Scrollable cards */}
+            <div
+              ref={scrollRef}
+              className="flex gap-2.5 overflow-x-auto pb-3 pt-1 px-1 scrollbar-hide scroll-smooth"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {/* "Все" button */}
+              <Link
+                href="/blog"
+                className={`shrink-0 flex flex-col items-center justify-center gap-1.5 w-[80px] py-3 rounded-2xl transition-all duration-200 ${
+                  !activeCategorySlug
+                    ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md shadow-rose-200"
+                    : "bg-white text-gray-600 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
+                }`}
+              >
+                <span className="text-2xl">✨</span>
+                <span className="text-xs font-semibold">Все</span>
+              </Link>
+              {categoriesWithEmoji.map((cat) => (
+                <Link
+                  key={cat.id}
+                  href={`/blog/category/${cat.slug}`}
+                  className={`shrink-0 flex flex-col items-center justify-center gap-1 w-[80px] py-3 rounded-2xl transition-all duration-200 ${
+                    activeCategorySlug === cat.slug
+                      ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md shadow-rose-200"
+                      : "bg-white text-gray-600 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
+                  }`}
+                >
+                  <span className="text-2xl">{cat.emoji}</span>
+                  <span className="text-[11px] font-medium text-center leading-tight px-1">{cat.name}</span>
+                  {cat.postCount > 0 && (
+                    <span className={`text-[10px] ${activeCategorySlug === cat.slug ? "text-white/70" : "text-gray-400"}`}>
+                      {cat.postCount}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+
+            {/* Right fade mask + arrow */}
+            {canScrollRight && (
+              <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center">
+                <div className="absolute right-0 inset-y-0 w-8 bg-gradient-to-l from-gray-50/95 to-transparent pointer-events-none" />
+                <button
+                  onClick={() => scrollBy("right")}
+                  className="relative mr-1 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md text-gray-500 hover:text-rose-500 transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

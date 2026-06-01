@@ -984,6 +984,53 @@ export function removeVideoPlaceholders(content: string): string {
 }
 
 /* ════════════════════════════════════════════════════════════
+   Blog category helpers
+   ════════════════════════════════════════════════════════════ */
+
+const CATEGORY_BASE_URL = process.env.CATEGORY_BASE_URL || "http://localhost:3000";
+
+export async function getAllCategorySlugs(): Promise<{ slug: string; name: string }[]> {
+  try {
+    const res = await fetch(`${CATEGORY_BASE_URL}/api/blog/categories`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data: { slug: string; name: string }[] = await res.json();
+    return data.map((c) => ({ slug: c.slug, name: c.name }));
+  } catch {
+    console.warn("[category] Failed to fetch categories, will use fallback");
+    return [];
+  }
+}
+
+export async function assignCategory(
+  topic: string,
+  categorySlugs: { slug: string; name: string }[]
+): Promise<string> {
+  if (categorySlugs.length === 0) return "";
+
+  const fallback = categorySlugs[0].slug;
+  const categoryList = categorySlugs.map((c) => `- ${c.slug}: ${c.name}`).join("\n");
+
+  const raw = await callLLM(
+    [
+      {
+        role: "system",
+        content: "Ты — помощник. Отвечай ТОЛЬКО одним словом — slug категории, без кавычек, точек и пояснений.",
+      },
+      {
+        role: "user",
+        content: `Выбери одну наиболее подходящую категорию для статьи на тему: "${topic}"\n\nДоступные категории:\n${categoryList}\n\nВерни ТОЛЬКО slug выбранной категории, без кавычек и точек.`,
+      },
+    ],
+    64
+  );
+
+  const slug = raw.trim().replace(/["'`.]/g, "");
+  if (categorySlugs.some((c) => c.slug === slug)) return slug;
+  console.warn(`[category] LLM returned invalid slug "${slug}", falling back to "${fallback}"`);
+  return fallback;
+}
+
+/* ════════════════════════════════════════════════════════════
    Main entry point
    ════════════════════════════════════════════════════════════ */
 

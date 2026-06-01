@@ -31,7 +31,7 @@ export default async function BlogPage({
 
   let posts: BlogPostListItem[] = [];
   let totalPages = 1;
-  let categories: { id: number; name: string; slug: string; postCount: number }[] = [];
+  let categories: { id: number; name: string; slug: string; postCount: number; description?: string | null }[] = [];
 
   if (postsRes.ok) {
     const data = await postsRes.json();

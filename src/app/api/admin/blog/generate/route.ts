@@ -1,5 +1,5 @@
 import { isAdmin } from "@/lib/admin-auth";
-import { generateMeta, generateContent, removeVideoPlaceholders } from "@/lib/ai-article";
+import { generateMeta, generateContent, removeVideoPlaceholders, getAllCategorySlugs, assignCategory } from "@/lib/ai-article";
 import { prisma } from "@/lib/prisma";
 import { searchPexels, downloadPexelsImage, slugToSearchQuery } from "@/lib/pexels";
 
@@ -125,6 +125,25 @@ export async function POST(request: Request) {
       });
 
       console.log(`[article] Published: id=${saved.id}, slug=${saved.slug}`);
+
+      // ── Auto-assign category via LLM ──
+      try {
+        update({ message: "Определяю категорию статьи...", progress: 82 });
+        const categories = await getAllCategorySlugs();
+        if (categories.length > 0) {
+          const categorySlug = await assignCategory(topic, categories);
+          if (categorySlug) {
+            const cat = await prisma.blogCategory.findUnique({ where: { slug: categorySlug } });
+            if (cat) {
+              await prisma.blogPost.update({ where: { id: saved.id }, data: { categoryId: cat.id } });
+              console.log(`[article] Assigned category: ${cat.name} (${cat.slug})`);
+            }
+          }
+        }
+      } catch (catErr) {
+        // Category assignment must NOT break article generation
+        console.warn("[article] Category assignment failed (article still published):", catErr);
+      }
 
       // ── Pexels hero image (fire-and-forget, non-blocking) ──
       try {
