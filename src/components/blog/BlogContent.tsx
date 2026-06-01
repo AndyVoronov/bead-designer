@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -55,25 +55,6 @@ function sanitizeHtml(html: string): string {
 export function BlogContent({ content, products }: BlogContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
-  const [scriptsLoaded, setScriptsLoaded] = useState(false);
-
-  // Track when GSAP and Chart.js are available — poll with retry
-  useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 20; // 20 * 250ms = 5s max wait
-    const checkScripts = setInterval(() => {
-      attempts++;
-      const hasGsap = !!(window as any).gsap && !!(window as any).ScrollTrigger;
-      const hasChart = !!(window as any).Chart;
-      if ((hasGsap && hasChart) || attempts >= maxAttempts) {
-        clearInterval(checkScripts);
-        if (hasGsap && hasChart) {
-          setScriptsLoaded(true);
-        }
-      }
-    }, 250);
-    return () => clearInterval(checkScripts);
-  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -348,35 +329,29 @@ export function BlogContent({ content, products }: BlogContentProps) {
     initReveal();
     initStatCounters();
 
-    // GSAP/Chart.js depend on external CDN scripts
-    if (scriptsLoaded) {
-      initGSAP();
-      initCharts();
-    } else {
-      // Poll for scripts with retry — CDN scripts may not be ready yet
-      let chartAttempts = 0;
-      const maxChartAttempts = 10;
-      const chartPoll = setInterval(() => {
-        chartAttempts++;
-        const hasGsap = !!(window as any).gsap && !!(window as any).ScrollTrigger;
-        const hasChart = !!(window as any).Chart;
-        if (hasGsap && hasChart) {
-          clearInterval(chartPoll);
-          initGSAP();
-          initCharts();
-        } else if (chartAttempts >= maxChartAttempts) {
-          clearInterval(chartPoll);
-          // Try whatever is available
-          if (hasGsap) initGSAP();
-          if (hasChart) initCharts();
-        }
-      }, 500);
-      // Store for cleanup
-      return () => clearInterval(chartPoll);
-    }
+    // GSAP/Chart.js — poll until available, then init
+    let scriptAttempts = 0;
+    const maxScriptAttempts = 30; // 30 * 300ms = 9s
+    const scriptPoll = setInterval(() => {
+      scriptAttempts++;
+      const hasGsap = !!(window as any).gsap && !!(window as any).ScrollTrigger;
+      const hasChart = !!(window as any).Chart;
+      // Init each as soon as it becomes available
+      if (hasGsap && !(container as any)._gsapInit) {
+        (container as any)._gsapInit = true;
+        initGSAP();
+      }
+      if (hasChart && !(container as any)._chartInit) {
+        (container as any)._chartInit = true;
+        initCharts();
+      }
+      if ((hasGsap && hasChart) || scriptAttempts >= maxScriptAttempts) {
+        clearInterval(scriptPoll);
+      }
+    }, 300);
 
-    return undefined;
-  }, [content, products, toast, scriptsLoaded]);
+    return () => clearInterval(scriptPoll);
+  }, [content, products, toast]);
 
   const safeContent = sanitizeHtml(content);
 

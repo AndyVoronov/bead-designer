@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { generateMeta, generateContent, removeVideoPlaceholders } from "@/lib/ai-article";
+import { generateMeta, generateContent, removeVideoPlaceholders, getAllCategorySlugs, assignCategory } from "@/lib/ai-article";
 import { searchPexels, downloadPexelsImage, slugToSearchQuery } from "@/lib/pexels";
 
 export const dynamic = "force-dynamic";
@@ -127,6 +127,23 @@ export async function POST() {
         });
 
         console.log(`[schedule] Completed: slug=${saved.slug}`);
+
+        // Auto-assign category
+        try {
+          const categories = await getAllCategorySlugs();
+          if (categories.length > 0) {
+            const categorySlug = await assignCategory(post.topic, categories);
+            if (categorySlug) {
+              const cat = await prisma.blogCategory.findUnique({ where: { slug: categorySlug } });
+              if (cat) {
+                await prisma.blogPost.update({ where: { id: saved.id }, data: { categoryId: cat.id } });
+                console.log(`[schedule] Assigned category: ${cat.name} (${cat.slug})`);
+              }
+            }
+          }
+        } catch (catErr) {
+          console.warn('[schedule] Category assignment failed:', catErr);
+        }
 
         // Link scheduled post to article
         await prisma.scheduledPost.update({
