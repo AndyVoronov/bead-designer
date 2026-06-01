@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Sparkles, Loader2, CheckCircle2, Search, X } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle2, Search, X, Clock } from "lucide-react";
 
 interface ArticleGeneratorProps {
   onGenerated: (data: { slug: string; title: string }) => void;
+  publishMode?: "now" | "scheduled";
+  scheduledAt?: string;
+  onScheduled?: (topic: string, scheduledAt: string) => void;
+  onScheduleCreated?: () => void;
 }
 
 interface PollResult {
@@ -26,7 +30,13 @@ interface ProductOption {
   images: { url: string }[];
 }
 
-export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps) {
+export default function ArticleGenerator({
+  onGenerated,
+  publishMode: publishModeProp,
+  scheduledAt: scheduledAtProp,
+  onScheduled,
+  onScheduleCreated,
+}: ArticleGeneratorProps) {
   const [topic, setTopic] = useState("");
   const [requirements, setRequirements] = useState("");
   const [active, setActive] = useState(false);
@@ -36,6 +46,21 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
   const [progress, setProgress] = useState(0);
   const jobIdRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Internal publish mode (can be overridden by prop)
+  const [internalPublishMode, setInternalPublishMode] = useState<"now" | "scheduled">(
+    publishModeProp || "now"
+  );
+  const [internalScheduledAt, setInternalScheduledAt] = useState(scheduledAtProp || "");
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+
+  // Sync with props
+  useEffect(() => {
+    if (publishModeProp) setInternalPublishMode(publishModeProp);
+  }, [publishModeProp]);
+  useEffect(() => {
+    if (scheduledAtProp) setInternalScheduledAt(scheduledAtProp);
+  }, [scheduledAtProp]);
 
   // Product selector state
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -54,7 +79,6 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
           setProductsLoaded(true);
         }
       } catch {
-        // Silently fail — product selector is optional
         setProductsLoaded(true);
       }
     })();
@@ -73,10 +97,77 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
     }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => stopPolling();
   }, [stopPolling]);
+
+  // ── Moscow timezone helpers ──
+  const MOSCOW_TZ = "Europe/Moscow";
+
+  function formatMoscowDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    return date.toLocaleString("ru-RU", {
+      timeZone: MOSCOW_TZ,
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function getMoscowNowISO(): string {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: MOSCOW_TZ,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return formatter.format(now);
+  }
+
+  // ── Handle schedule ──
+  const handleScheduleSubmit = async () => {
+    if (!topic.trim() || topic.trim().length < 3) return;
+    if (!internalScheduledAt) return;
+
+    setScheduleSubmitting(true);
+
+    try {
+      const res = await fetch("/api/admin/blog/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          additionalRequirements: requirements.trim() || undefined,
+          productIds: selectedProductIds.length > 0 ? selectedProductIds : undefined,
+          scheduledAt: new Date(internalScheduledAt).toISOString(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || `Ошибка: ${res.status}`);
+        setScheduleSubmitting(false);
+        return;
+      }
+
+      // Show success state
+      setStatus("done");
+      setMessage(`Публикация запланирована на ${formatMoscowDate(internalScheduledAt)}`);
+      setScheduleSubmitting(false);
+
+      onScheduled?.(topic.trim(), internalScheduledAt);
+      onScheduleCreated?.();
+    } catch {
+      setError("Не удалось подключиться к серверу");
+      setScheduleSubmitting(false);
+    }
+  };
 
   const handleGenerate = () => {
     if (!topic.trim() || topic.trim().length < 3) return;
@@ -91,7 +182,6 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
     if (requirements.trim()) body.requirements = requirements.trim();
     if (selectedProductIds.length > 0) body.productIds = selectedProductIds;
 
-    // Step 1: POST to start job
     (async () => {
       try {
         const res = await fetch("/api/admin/blog/generate", {
@@ -111,7 +201,6 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
 
         jobIdRef.current = data.jobId;
 
-        // Step 2: poll for completion
         pollTimerRef.current = setInterval(async () => {
           if (!jobIdRef.current) return;
 
@@ -137,7 +226,7 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
               setActive(false);
             }
           } catch {
-            // Network error on poll — don't kill the job, just retry next tick
+            // Network error — retry next tick
           }
         }, 2000);
       } catch {
@@ -167,6 +256,14 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
     setSelectedProductIds([]);
   };
 
+  const handleSubmit = () => {
+    if (internalPublishMode === "scheduled") {
+      handleScheduleSubmit();
+    } else {
+      handleGenerate();
+    }
+  };
+
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(productSearch.toLowerCase())
   );
@@ -174,6 +271,10 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
   const selectedProducts = products.filter((p) =>
     selectedProductIds.includes(p.id)
   );
+
+  const isFormDisabled =
+    topic.trim().length < 3 ||
+    (internalPublishMode === "scheduled" && !internalScheduledAt);
 
   return (
     <div className="max-w-lg mx-auto">
@@ -216,7 +317,6 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
 
             {products.length > 0 && (
               <>
-                {/* Search input */}
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
@@ -237,7 +337,6 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
                   )}
                 </div>
 
-                {/* Product list with checkboxes */}
                 <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
                   {filteredProducts.length === 0 ? (
                     <div className="p-3 text-sm text-gray-400 text-center">
@@ -310,12 +409,19 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
           )}
 
           <button
-            onClick={status === "error" ? handleReset : handleGenerate}
-            disabled={status === "error" ? false : topic.trim().length < 3}
+            onClick={status === "error" ? handleReset : handleSubmit}
+            disabled={status === "error" ? false : isFormDisabled || scheduleSubmitting}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-rose-500 rounded-xl hover:from-purple-600 hover:to-rose-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none shadow-sm"
           >
-            {status === "error" ? (
+            {scheduleSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : status === "error" ? (
               "Попробовать снова"
+            ) : internalPublishMode === "scheduled" ? (
+              <>
+                <Clock className="w-4 h-4" />
+                Запланировать публикацию
+              </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
@@ -368,8 +474,16 @@ export default function ArticleGenerator({ onGenerated }: ArticleGeneratorProps)
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-8 h-8 text-green-500" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Статья опубликована!</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
+            {internalPublishMode === "scheduled" && !active ? "Публикация запланирована!" : "Статья опубликована!"}
+          </h3>
           <p className="text-sm text-gray-500">{message}</p>
+          <button
+            onClick={handleReset}
+            className="mt-4 px-4 py-2 text-sm font-medium text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors cursor-pointer border-none"
+          >
+            Создать ещё
+          </button>
         </div>
       )}
     </div>
