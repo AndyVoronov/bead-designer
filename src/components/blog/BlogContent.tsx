@@ -339,15 +339,25 @@ export function BlogContent({ content, products }: BlogContentProps) {
       container.querySelectorAll('.blog-reveal').forEach((el) => revealObserver.observe(el));
     };
 
-    // initReveal uses only IntersectionObserver — no external scripts needed
+    // These use only native APIs — no external scripts needed
     initReveal();
+    initStatCounters();
 
     // GSAP/Chart.js depend on external CDN scripts
     if (scriptsLoaded) {
       initGSAP();
       initCharts();
-      initStatCounters();
     }
+
+    // Fallback: retry GSAP/Chart.js init after 2s in case CDN was slow on first load
+    const fallbackTimer = setTimeout(() => {
+      const gsap = (window as any).gsap;
+      const Chart = (window as any).Chart;
+      if (gsap) initGSAP();
+      if (Chart) initCharts();
+    }, 2000);
+
+    return () => clearTimeout(fallbackTimer);
   }, [content, products, toast, scriptsLoaded]);
 
   const safeContent = sanitizeHtml(content);
