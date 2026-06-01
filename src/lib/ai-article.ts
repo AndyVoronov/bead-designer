@@ -23,30 +23,45 @@ const VIDEO_UPLOAD_DIR = process.env.VIDEO_UPLOAD_DIR || "/var/www/toydesigner/u
 
 async function callLLM(
   messages: { role: string; content: string }[],
-  maxTokens = 16384
+  maxTokens = 16384,
+  retries = 2
 ): Promise<string> {
-  const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${AI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages,
-      max_tokens: maxTokens,
-      temperature: 0.7,
-    }),
-    signal: AbortSignal.timeout(600_000),
-  });
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        console.log(`[llm] Retry ${attempt}/${retries} after ${delay}ms (previous: ${lastErr?.message})`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+      const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${AI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages,
+          max_tokens: maxTokens,
+          temperature: 0.7,
+        }),
+        signal: AbortSignal.timeout(600_000),
+      });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(`LLM API error ${res.status}: ${errText}`);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`LLM API error ${res.status}: ${errText}`);
+      }
+
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content ?? "";
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      if (attempt === retries) throw lastErr;
+    }
   }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  throw lastErr || new Error("callLLM: unexpected failure");
 }
 
 function extractJSON<T>(raw: string): T | null {
