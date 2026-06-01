@@ -339,12 +339,14 @@ export function BlogContent({ content, products }: BlogContentProps) {
       container.querySelectorAll('.blog-reveal').forEach((el) => revealObserver.observe(el));
     };
 
-    // Initialize only when scripts are loaded
+    // initReveal uses only IntersectionObserver — no external scripts needed
+    initReveal();
+
+    // GSAP/Chart.js depend on external CDN scripts
     if (scriptsLoaded) {
       initGSAP();
       initCharts();
       initStatCounters();
-      initReveal();
     }
   }, [content, products, toast, scriptsLoaded]);
 
