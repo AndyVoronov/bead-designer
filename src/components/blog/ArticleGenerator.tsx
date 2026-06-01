@@ -144,7 +144,9 @@ export default function ArticleGenerator({
           topic: topic.trim(),
           additionalRequirements: requirements.trim() || undefined,
           productIds: selectedProductIds.length > 0 ? selectedProductIds : undefined,
-          scheduledAt: new Date(internalScheduledAt).toISOString(),
+          // datetime-local gives "2026-06-01T15:02" without timezone.
+          // Append Europe/Moscow offset to ensure correct UTC conversion.
+          scheduledAt: new Date(internalScheduledAt + "+03:00").toISOString(),
         }),
       });
 
