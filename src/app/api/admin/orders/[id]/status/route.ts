@@ -1,12 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/admin-auth";
+import { notifyUserOrderStatusChange } from "@/lib/notifications";
 
 const VALID_STATUSES = ["new", "processing", "completed"];
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!isAdmin(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -19,10 +25,24 @@ export async function PATCH(
       );
     }
 
+    const existing = await prisma.order.findUnique({
+      where: { id: Number(id) },
+    });
+
     const order = await prisma.order.update({
       where: { id: Number(id) },
       data: { status },
     });
+
+    // Send notification if status changed
+    if (existing && existing.status !== status && existing.userId) {
+      notifyUserOrderStatusChange(
+        existing.userId,
+        "design",
+        order.id,
+        status
+      ).catch(() => {});
+    }
 
     return NextResponse.json(order);
   } catch (error) {

@@ -1,13 +1,17 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
-import { ScrollControls, Scroll, Loader } from "@react-three/drei";
+import { Loader } from "@react-three/drei";
 import { BeadStringScene } from "./BeadStringScene";
 import { LandingOverlay } from "./LandingOverlay";
 
+/* ── Shared scroll ref for 3D scene (without R3F ScrollControls) ──── */
+export const scrollOffsetRef = { current: 0 };
+
 export default function LandingPage() {
   const [isMobile, setIsMobile] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -16,28 +20,40 @@ export default function LandingPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const pages = isMobile ? 9 : 6;
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const onScroll = () => {
+      const max = container.scrollHeight - container.clientHeight;
+      scrollOffsetRef.current = max > 0 ? container.scrollTop / max : 0;
+    };
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <>
-      <Canvas
-        shadows
-        camera={{
-          position: [0, 0, 9],
-          fov: isMobile ? 55 : 45,
-        }}
-        style={{ width: "100vw", height: "100vh" }}
-        gl={{ antialias: true }}
-      >
-        <Suspense fallback={null}>
-          <ScrollControls pages={pages} damping={0.25}>
+      {/* Fixed 3D background — no pointer events */}
+      <div className="fixed inset-0 z-0" style={{ pointerEvents: "none" }}>
+        <Canvas
+          shadows
+          camera={{
+            position: [0, 0, 9],
+            fov: isMobile ? 55 : 45,
+          }}
+          gl={{ antialias: true }}
+        >
+          <Suspense fallback={null}>
             <BeadStringScene isMobile={isMobile} />
-            <Scroll html style={{ width: "100%" }}>
-              <LandingOverlay />
-            </Scroll>
-          </ScrollControls>
-        </Suspense>
-      </Canvas>
+          </Suspense>
+        </Canvas>
+      </div>
+
+      {/* Normal scrolling content on top */}
+      <div ref={scrollContainerRef} className="relative z-10" style={{ height: "100vh", overflow: "auto", touchAction: "auto", WebkitOverflowScrolling: "touch" }}>
+        <LandingOverlay />
+      </div>
+
       <Loader
         containerStyles={{ backgroundColor: "#fbf8f6" }}
         barStyles={{ backgroundColor: "#f43f5e" }}

@@ -46,7 +46,11 @@ ssh "$REMOTE" "mkdir -p $DEPLOY_PATH/.next/static $DEPLOY_PATH/public $DEPLOY_PA
 
 # --- Step 3: Sync standalone output ---
 echo "[3/8] Syncing standalone build..."
-rsync -avz --delete ".next/standalone/" "$REMOTE:$DEPLOY_PATH/"
+rsync -avz --delete \
+  --exclude='.env' \
+  --exclude='node_modules' \
+  --exclude='uploads' \
+  ".next/standalone/" "$REMOTE:$DEPLOY_PATH/"
 
 # --- Step 4: Sync static assets ---
 echo "[4/8] Syncing static assets..."
@@ -82,6 +86,20 @@ cd "\$APP_PATH"
 # --- Install npm dependencies for standalone ---
 echo "  → Installing production dependencies..."
 npm install --omit=dev
+
+# --- Fix Turbopack symlinks ---
+echo "  → Fixing Turbopack symlinks..."
+PRISMA_HASH=$(grep -roh "prisma/client-[a-f0-9]*" .next/server/chunks/ 2>/dev/null | sed "s|prisma/client-||" | sort -u | head -1)
+PG_HASH=$(grep -roh "pg-[a-f0-9]*" .next/server/chunks/ 2>/dev/null | sed "s|pg-||" | sort -u | head -1)
+if [ -n "$PRISMA_HASH" ]; then
+  rm -f ".next/node_modules/@prisma/client-$PRISMA_HASH"
+  ln -sf "$APP_PATH/node_modules/.prisma/client" ".next/node_modules/@prisma/client-$PRISMA_HASH"
+fi
+if [ -n "$PG_HASH" ]; then
+  rm -f ".next/node_modules/pg-$PG_HASH"
+  ln -sf "$APP_PATH/node_modules/pg" ".next/node_modules/pg-$PG_HASH"
+fi
+rm -rf .next/cache
 
 # --- Push Prisma schema and seed ---
 echo "  → Applying database schema..."

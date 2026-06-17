@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       shortDescription: p.shortDescription,
       basePrice: p.basePrice,
       recommendedAge: p.recommendedAge,
-      images: p.images.map((img) => ({ url: `/api${img.url}?w=800` })),
+      images: p.images.map((img) => ({ url: `/api${img.url}` })),
     }));
 
     return Response.json(mapped);

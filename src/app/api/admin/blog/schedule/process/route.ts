@@ -87,7 +87,7 @@ export async function POST() {
             name: p.name,
             slug: p.slug,
             basePrice: p.basePrice,
-            imageUrl: p.images[0] ? `/api${p.images[0].url}?w=800` : "",
+            imageUrl: p.images[0] ? `/api${p.images[0].url}` : "",
             shortDescription: p.shortDescription,
             recommendedAge: p.recommendedAge,
           }));

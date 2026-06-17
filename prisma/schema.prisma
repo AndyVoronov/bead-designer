@@ -470,6 +470,7 @@ model BlogPost {
   images         BlogPostImage[]
   comments       BlogComment[]
   relatedProductIds Int[]
+  scheduledPosts    ScheduledPost[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -520,4 +521,24 @@ model BlogComment {
   @@index([userId])
   @@index([parentId])
   @@index([isApproved])
+}
+
+// ── Scheduled Posts ──────────────────────────────────────────────────
+
+model ScheduledPost {
+  id                    Int       @id @default(autoincrement())
+  topic                 String
+  additionalRequirements String?  @db.Text
+  productIds            String?   // JSON array of product IDs, e.g. "[1,5,7]"
+  scheduledAt           DateTime  // when to generate
+  status                String    @default("pending") // "pending" | "processing" | "completed" | "failed"
+  articleId             Int?
+  article               BlogPost? @relation(fields: [articleId], references: [id])
+  error                 String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([scheduledAt])
+  @@index([status])
+  @@map("scheduled_posts")
 }
