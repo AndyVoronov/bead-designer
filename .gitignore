@@ -63,3 +63,6 @@ uploads/
 setup-new-domain.sh
 *.bak*
 .gsd/
+
+graphify-out/
+public/videos/

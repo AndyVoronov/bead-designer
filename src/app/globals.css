@@ -3,6 +3,8 @@
 @theme {
   --font-nunito: var(--font-nunito);
   --font-pacifico: var(--font-pacifico);
+  --font-rubik: var(--font-rubik);
+  --font-playfair: var(--font-playfair);
 }
 
 html {
@@ -18,7 +20,17 @@ body {
 }
 
 .font-hand {
-  font-family: var(--font-pacifico), "Pacifico", cursive;
+  font-family: var(--font-rubik), "Rubik", sans-serif;
+  font-style: italic;
+  font-weight: 300;
+}
+
+.font-display {
+  font-family: var(--font-playfair), "Playfair Display", serif;
+}
+
+.font-body {
+  font-family: var(--font-rubik), "Rubik", sans-serif;
 }
 
 .canvas-container {
