@@ -66,3 +66,4 @@ setup-new-domain.sh
 
 graphify-out/
 public/videos/
+.next.new-broken/
