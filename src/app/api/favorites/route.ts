@@ -40,22 +40,26 @@ export async function POST(request: NextRequest) {
   });
 
   if (existing) {
-    // Unfavorite
-    await prisma.favorite.delete({ where: { id: existing.id } });
-    await prisma.template.update({
-      where: { id: templateId },
-      data: { favoriteCount: { decrement: 1 } },
-    });
+    // Unfavorite (atomic transaction)
+    await prisma.$transaction([
+      prisma.favorite.delete({ where: { id: existing.id } }),
+      prisma.template.update({
+        where: { id: templateId },
+        data: { favoriteCount: { decrement: 1 } },
+      }),
+    ]);
     return NextResponse.json({ favorited: false });
   }
 
-  // Favorite
-  await prisma.favorite.create({
-    data: { userId, templateId },
-  });
-  await prisma.template.update({
-    where: { id: templateId },
-    data: { favoriteCount: { increment: 1 } },
-  });
+  // Favorite (atomic transaction)
+  await prisma.$transaction([
+    prisma.favorite.create({
+      data: { userId, templateId },
+    }),
+    prisma.template.update({
+      where: { id: templateId },
+      data: { favoriteCount: { increment: 1 } },
+    }),
+  ]);
   return NextResponse.json({ favorited: true }, { status: 201 });
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CATALOG_BEADS, getCatalogBead } from "@/data/catalogBeads";
-import { catalogBeadToBeadState } from "@/lib/catalogUtils";
+import { catalogBeadToBeadState } from "@/lib/bead-utils";
 import type { BeadShape } from "@/types/bead";
 
 describe("CATALOG_BEADS", () => {

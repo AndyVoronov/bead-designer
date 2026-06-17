@@ -241,23 +241,6 @@ export function ProductCard({ product, priority, onQuickView }: ProductCardProps
           </span>
         )}
 
-
-        {/* Care guide link */}
-        <Link
-          href="/care"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            window.open("/care", "_blank");
-          }}
-          className="mt-1 text-xs text-gray-400 hover:text-emerald-600 font-medium transition-colors cursor-pointer inline-flex items-center gap-1"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-            <path d="m9 12 2 2 4-4"/>
-          </svg>
-          Уход за изделием
-        </Link>
         {/* Quick view button */}
         {onQuickView && (
           <button
