@@ -63,16 +63,8 @@ const VK: OAuth2Provider = {
 };
 
 // ── Auth.js config ───────────────────────────────────────────────────────────
-
-const providers = [Yandex];
-
-// Only add VK provider if credentials are configured
-if (process.env.AUTH_VK_ID && process.env.AUTH_VK_SECRET) {
-  providers.push(VK);
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers,
+  providers: [Yandex, VK],
   // No PrismaAdapter — we handle user/account creation manually via callbacks
   session: {
     strategy: "jwt",
@@ -168,6 +160,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.userId = String(user.id);
           }
           token.provider = account.provider;
+          console.log("[jwt] sign-in: providerId=" + account.providerAccountId + " → userId=" + token.userId);
         } catch (err) {
           console.error("[jwt] failed to look up user:", err);
           token.userId = String(user.id);
@@ -185,6 +178,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token.userId) {
         session.user.id = String(token.userId);
+        console.log("[session] userId:", session.user.id);
       }
       return session;
     },

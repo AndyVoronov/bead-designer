@@ -6,7 +6,6 @@ import {
   useState,
   useEffect,
   useCallback,
-  useRef,
   type ReactNode,
 } from "react";
 
@@ -49,30 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => setLoading(false));
   }, []);
 
-  // If login was required and user just appeared, run callback + merge cart
+  // If login was required and user just appeared, run callback
   useEffect(() => {
     if (user && pendingCallback) {
       pendingCallback();
       setPendingCallback(null);
     }
   }, [user, pendingCallback]);
-
-  // Merge guest cart into user cart on login (once per session)
-  const hasMergedRef = useRef(false);
-  useEffect(() => {
-    if (user && !hasMergedRef.current) {
-      hasMergedRef.current = true;
-      fetch("/api/cart/merge", { method: "POST" })
-        .then((res) => res.ok && res.json())
-        .then((data) => {
-          if (data?.merged > 0) {
-            // Dispatch event to refresh cart count in UI
-            window.dispatchEvent(new CustomEvent("cart-updated"));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user]);
 
   // Listen for auth state changes (e.g. after OAuth redirect)
   useEffect(() => {

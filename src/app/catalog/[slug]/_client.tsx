@@ -916,6 +916,26 @@ export default function ProductDetailClient({
               </div>
             )}
 
+
+            {/* Care guide link */}
+            <div className="mb-6">
+              <Link
+                href="/care"
+                className="flex items-center gap-2.5 p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-100 hover:bg-emerald-50 transition-colors group"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 shrink-0" aria-hidden="true">
+                  <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                  <path d="m9 12 2 2 4-4"/>
+                </svg>
+                <div>
+                  <p className="text-sm font-bold text-emerald-700 group-hover:text-emerald-800">Рекомендации по уходу</p>
+                  <p className="text-xs text-emerald-600/70">Как продлить жизнь вашему изделию</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 ml-auto shrink-0" aria-hidden="true">
+                  <path d="m9 18 6-6-6-6"/>
+                </svg>
+              </Link>
+            </div>
             {/* Composite items — using next/image (#1) */}
             {product.type === "composite" && product.compositeItems.length > 0 && (
               <div className="bg-purple-50/50 rounded-2xl p-4 border border-purple-100">
