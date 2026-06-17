@@ -1,12 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/admin-auth";
 
-export async function GET(request: NextRequest) {
-  if (!isAdmin(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function GET() {
   try {
     const templates = await prisma.template.findMany({
       orderBy: { createdAt: "desc" },
@@ -21,11 +16,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  if (!isAdmin(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, designCode } = body;

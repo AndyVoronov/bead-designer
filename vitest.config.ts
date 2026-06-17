@@ -23,6 +23,5 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: [path.resolve(realRoot, "src/test-setup.ts")],
     passWithNoTests: true,
-    exclude: ["**/node_modules/**", "**/.gsd/worktrees/**"],
   },
 });

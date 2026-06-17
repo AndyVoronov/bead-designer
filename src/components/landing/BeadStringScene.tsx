@@ -2,9 +2,8 @@
 
 import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Float, Sparkles } from "@react-three/drei";
+import { useScroll, Float, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
-import { scrollOffsetRef } from "./LandingPage";
 
 /* ── Bead palette ────────────────────────────────────────────────────────── */
 
@@ -72,10 +71,11 @@ function Bead({
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const currentScale = useRef(0);
+  const scroll = useScroll();
 
   useFrame(() => {
     if (!meshRef.current) return;
-    const progress = scrollOffsetRef.current;
+    const progress = scroll.offset;
     const threshold = (index / TOTAL) * 0.82;
     const target = progress >= threshold ? 1 : 0;
     currentScale.current += (target - currentScale.current) * 0.06;
