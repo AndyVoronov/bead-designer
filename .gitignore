@@ -14,3 +14,8 @@ BUILD_ID
 save-article.cjs
 seed-scheduled.js
 server.js.bak
+
+# Local-only tooling & build artifacts (not for prod)
+.gsd/
+deploy.tar.gz
+

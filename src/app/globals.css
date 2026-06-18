@@ -1,9 +1,47 @@
 @import "tailwindcss";
+
+/* Exclude the .gsd tooling symlink (points outside the project root) from
+   Tailwind v4's automatic source detection — otherwise @tailwindcss/postcss
+   throws "Cannot depend on path outside of root directory". */
+@source not "../../.gsd";
 @plugin "@tailwindcss/typography";
+
+/* Hand-written display font used by the /books page (.font-hand).
+   Self-hosted truetype — matches momomoments.ru exactly. */
+@font-face {
+  font-family: "Qwerpol";
+  src: url(/fonts/qwerpol.ttf) format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme {
   --font-nunito: var(--font-nunito);
   --font-pacifico: var(--font-pacifico);
+  --font-rubik: var(--font-rubik);
+  --font-playfair: var(--font-playfair);
+
+  /* /books page palette — matches momomoments.ru */
+  --color-bg: #f9f8f6;
+  --color-bg-alt: #f0eeeb;
+  --color-border: #dddbd6;
+  --color-border-light: #eceae6;
+  --color-ink: #242424;
+  --color-ink-muted: #5f5f5f;
+  --color-ink-light: #8a8a8a;
+  --color-ink-faint: #a0a0a0;
+  --color-crayon-pink: #f8d7da;
+  --color-crayon-pink-dark: #c85a71;
+  --color-crayon-yellow: #fff3cd;
+  --color-crayon-yellow-dark: #f6e3a8;
+  --color-lavender: #bad9eb;
+  --color-lavender-dark: #6fa6c5;
+  --color-lavender-light: #daeaf5;
+  --color-lavender-muted: #8ebdd4;
+  --color-sky: #d0eaf7;
+  --color-sky-dark: #7ab8d9;
+  --color-sky-light: #d7ebf3
 }
 
 html {
@@ -19,7 +57,30 @@ body {
 }
 
 .font-hand {
-  font-family: var(--font-pacifico), "Pacifico", cursive;
+font-family: "Qwerpol", cursive;
+}
+
+.font-display {
+  font-family: var(--font-playfair), "Playfair Display", "Georgia", serif;
+}
+
+.font-body {
+  font-family: var(--font-rubik), "Rubik", "Segoe UI", sans-serif;
+}
+
+/* Marquee ticker used on /books. The keyframes live inline in BooksPageClient. */
+.animate-marquee {
+  animation: 32s linear infinite marquee-scroll;
+}
+
+/* Try-demo before/after pair: fade+rise when switching pairs. */
+@keyframes try-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-try-in {
+  animation: try-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+
 }
 
 .canvas-container {

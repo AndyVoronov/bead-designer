@@ -5,12 +5,16 @@ const playfair = Playfair_Display({
   subsets: ["latin", "cyrillic"],
   variable: "--font-playfair",
   display: "swap",
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
 });
 
 const rubik = Rubik({
   subsets: ["latin", "cyrillic"],
   variable: "--font-rubik",
   display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
