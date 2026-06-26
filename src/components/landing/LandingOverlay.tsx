@@ -22,6 +22,7 @@ import {
   CreditCard,
   HelpCircle,
   Info,
+  BookOpen,
 } from "lucide-react";
 import { decodeDesign } from "@/lib/serialization";
 import { getCatalogBead } from "@/data/catalogBeads";
@@ -70,15 +71,23 @@ function ProfileButton() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const fetchSession = () => {
+      fetch("/api/auth/session")
+        .then((res) => (res.ok ? res.json() : { user: null }))
+        .then((data) => setUser(data.user))
+        .catch(() => {});
+    };
+
     fetch("/api/auth/csrf")
       .then((res) => res.json())
       .then((data) => setCsrfToken(data.csrfToken))
       .catch(() => {});
 
-    fetch("/api/auth/session")
-      .then((res) => (res.ok ? res.json() : { user: null }))
-      .then((data) => setUser(data.user))
-      .catch(() => {});
+    fetchSession();
+
+    // Re-fetch session when auth state changes (e.g. after VK/Telegram login)
+    window.addEventListener("auth-state-change", fetchSession);
+    return () => window.removeEventListener("auth-state-change", fetchSession);
   }, []);
 
   // Close menu on click outside
@@ -688,10 +697,10 @@ export function LandingOverlay() {
 
       {/* ── NAV ── */}
       <nav className="fixed top-0 left-0 w-full p-4 md:p-6 flex justify-between items-center z-50 pointer-events-auto">
-        <div className="text-2xl font-hand text-rose-500 drop-shadow-sm select-none flex items-center gap-2">
+        <Link href="/" className="text-2xl font-hand text-rose-500 drop-shadow-sm select-none flex items-center gap-2 hover:text-rose-600 transition-colors">
           <Baby size={32} />
           5 минут тишины
-        </div>
+        </Link>
         <div className="hidden md:flex items-center gap-4 text-gray-700 font-semibold bg-white/50 backdrop-blur-sm px-6 py-2 rounded-full shadow-sm">
           <button
             onClick={() => scrollTo("about")}
@@ -705,6 +714,12 @@ export function LandingOverlay() {
           >
             Каталог
           </button>
+          <a
+            href="/books"
+            className="hover:text-rose-500 transition-colors"
+          >
+            Книги
+          </a>
           <button
             onClick={() => scrollTo("reviews")}
             className="hover:text-rose-500 transition-colors"
@@ -854,6 +869,10 @@ export function LandingOverlay() {
               <Package size={18} className="text-rose-400" />
               Каталог
             </Link>
+            <Link href="/books" className="flex items-center gap-3 text-gray-700 font-semibold hover:text-rose-500 transition-colors py-2.5 px-2 rounded-xl hover:bg-rose-50" onClick={() => setMobileMenuOpen(false)}>
+              <BookOpen size={18} className="text-rose-400" />
+              Книги
+            </Link>
             <button onClick={() => { setSearchOpen(true); setMobileMenuOpen(false); }} className="flex items-center gap-3 text-gray-700 font-semibold hover:text-rose-500 transition-colors py-2.5 px-2 rounded-xl hover:bg-rose-50 text-left w-full cursor-pointer">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-rose-400"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
               Поиск
@@ -952,6 +971,110 @@ export function LandingOverlay() {
               <Palette size={20} className="text-rose-500" />
             </li>
           </ul>
+        </div>
+      </Section>
+
+      {/* ── BOOKS ── */}
+      <Section id="books">
+        <div className="w-full">
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-800 bg-white/40 backdrop-blur-sm px-8 py-2 rounded-full flex items-center gap-2">
+              <BookOpen size={28} className="text-rose-500" />
+              Книги о малыше
+            </h2>
+            <Link
+              href="/books"
+              className="text-rose-500 hover:text-rose-600 font-semibold text-sm flex items-center gap-1 transition-colors"
+            >
+              Все книги
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+
+          <div className="bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 rounded-3xl p-6 md:p-10 shadow-xl border border-white/60">
+            <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+              {/* left: text */}
+              <div className="text-center md:text-left">
+                <span className="inline-flex items-center gap-1.5 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+                  <Sparkles size={14} />
+                  Новинка
+                </span>
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 leading-tight">
+                  Подарите приключение,<br />где главный герой — ваш ребёнок
+                </h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Персональные книги с уникальными иллюстрациями: загрузите фото —
+                  и наш алгоритм превратит ребёнка в сказочного персонажа.
+                  Твёрдая обложка, от 20 страниц, электронная версия в подарок.
+                </p>
+                <div className="flex flex-wrap gap-3 justify-center md:justify-start mb-6">
+                  <span className="flex items-center gap-1.5 text-sm text-gray-600 bg-white/70 px-3 py-1.5 rounded-full">
+                    <CheckCircle size={15} className="text-green-500" />
+                    Готовность ~30 мин
+                  </span>
+                  <span className="flex items-center gap-1.5 text-sm text-gray-600 bg-white/70 px-3 py-1.5 rounded-full">
+                    <Truck size={15} className="text-rose-400" />
+                    Печать за 5 дней
+                  </span>
+                  <span className="flex items-center gap-1.5 text-sm text-gray-600 bg-white/70 px-3 py-1.5 rounded-full">
+                    от <strong className="text-gray-800">3 590 ₽</strong>
+                  </span>
+                </div>
+                <Link
+                  href="/books"
+                  className="inline-flex items-center gap-2 bg-rose-500 hover:bg-rose-600 text-white font-semibold px-7 py-3 rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5"
+                >
+                  Выбрать книгу
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+
+              {/* right: cover collage */}
+              <div className="relative h-72 md:h-80 flex items-center justify-center">
+                {/* cover 1 */}
+                <div className="absolute left-2 md:left-8 top-6 w-28 md:w-36 aspect-[3/4] rounded-r-2xl rounded-l-md shadow-2xl overflow-hidden ring-1 ring-black/5 rotate-[-8deg] origin-bottom-left">
+                  <Image
+                    src="/books/covers/imya-spasaet-korolevstvo.webp"
+                    alt="Книга «Имя спасает королевство»"
+                    fill
+                    sizes="144px"
+                    className="object-cover"
+                  />
+                  <div className="absolute top-0 bottom-0 left-0 w-2.5 bg-black/10" />
+                </div>
+                {/* cover 2 */}
+                <div className="absolute right-2 md:right-8 top-2 w-32 md:w-40 aspect-[3/4] rounded-r-2xl rounded-l-md shadow-2xl overflow-hidden ring-1 ring-black/5 rotate-[7deg] origin-bottom-right">
+                  <Image
+                    src="/books/covers/imya-v-strane-snovideniy.webp"
+                    alt="Книга «Имя в Стране сновидений»"
+                    fill
+                    sizes="160px"
+                    className="object-cover"
+                  />
+                  <div className="absolute top-0 bottom-0 left-0 w-2.5 bg-black/10" />
+                </div>
+                {/* cover 3 — center, front */}
+                <div className="relative z-10 w-32 md:w-44 aspect-[3/4] rounded-r-2xl rounded-l-md shadow-2xl overflow-hidden ring-1 ring-black/5">
+                  <Image
+                    src="/books/covers/imya-i-solnechnyy-zaychik.webp"
+                    alt="Книга «Имя и солнечный зайчик»"
+                    fill
+                    sizes="176px"
+                    className="object-cover"
+                  />
+                  <div className="absolute top-0 bottom-0 left-0 w-3 bg-black/10" />
+                  <div className="absolute inset-x-0 bottom-0 top-1/2 bg-gradient-to-t from-black/60 to-transparent" />
+                  <span className="absolute bottom-3 left-3 bg-white/25 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-1 rounded-lg uppercase tracking-wider">
+                    Популярная
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </Section>
 
