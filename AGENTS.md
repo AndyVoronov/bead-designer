@@ -359,12 +359,12 @@ Cyrillic→Latin transliteration inline: а→a, б→b, в→v, г→g, д→d,
 ## Build & Deploy
 
 - **Turbopack** creates hashed module symlinks (`@prisma/client-HASH`, `pg-HASH`) that break on Linux server
-- **Must fix symlinks after every deploy** (see DEPLOY.md)
-- Standalone tar transfer often times out at 120s on Windows — use 180s+ timeout
-- **Never overwrite server `.env`** during deploy
+- **Must fix symlinks after every deploy** — use `ssh root@82.38.60.189 'bash /usr/local/bin/bead-deploy fix'` (see DEPLOY.md)
+- **Do NOT use SCP on Windows** — hangs on files >100MB. Use **piped tar**: `tar cf - -C .next/standalone . | ssh root@82.38.60.189 'cd /opt/bead-designer && bash /usr/local/bin/bead-deploy'`
+- **Never overwrite server `.env`** during deploy (bead-deploy restores symlink automatically)
 - **Run `npx prisma db push`** after schema changes to sync DB
-- **Always delete `.next` on server before deploying** — stale chunk files from previous builds persist otherwise
 - **Run PM2 with `node server.js`** — NOT `next start` (standalone mode); use: `pm2 start node --name bead-designer -- server.js`
+- **PM2 restart** — use stop→delete→start (not `pm2 restart`): `pm2 stop bead-designer; pm2 delete bead-designer; pm2 start node --name bead-designer -- server.js`
 - **Verify `ADMIN_COOKIE_SECRET`** exists in server `.env` — if missing, admin auth returns 500 with cryptic "Некорректный запрос" error
 - **NFT warning** is non-blocking: `./next.config.ts` → `./src/app/api/uploads/products/[...path]/route.ts`
 - **Nginx gzip directives** commented out in `nginx.conf` (already in main nginx.conf)
@@ -694,3 +694,33 @@ The `jwt` callback in `src/lib/auth.ts` queries `prisma.account.findUnique()` on
 
 ### Promo Code Architecture
 Shared utility at `src/lib/promo-utils.ts` — single source of truth for `checkConditions()`, `calculateDiscount()`, `effectivePrice()`, `cartTotal()`. Both `/api/promo/validate` and `/api/cart/checkout` import from this file. All scopes (cart/products/categories/gift) and conditions (required products, categories, min qty, min amount, conditionMode, maxUsesPerUser) are fully evaluated. Input sanitization (length limits + trim) applied at checkout.
+
+## Knowledge Graph (graphify)
+
+The project has a [graphify](https://github.com/safishamsi/graphify) knowledge graph at `graphify-out/graph.json` (1331 nodes, 2081 edges, 131 communities). Use it to navigate the codebase **instead of** reading/grepping files when answering "where is X", "how does A connect to B".
+
+**Commands** (run from project root):
+- `graphify explain "<name>"` — plain-language summary of a node + its neighbors (e.g. `graphify explain "BooksReviews"`)
+- `graphify path "A" "B"` — shortest dependency path between two nodes
+- `graphify update .` — rebuild the graph after code changes (no LLM key needed, AST-only)
+- `graphify diagnose multigraph` — detect duplicate-edge collapse risks
+
+**When to rebuild:** after creating/deleting components or routes — run `graphify update .` so `explain`/`path` stay accurate.
+
+**LLM keys:** code-graph is AST-only (no key needed). For docs/images semantic extraction, set `GEMINI_API_KEY` or `OPENAI_API_KEY` in `.env` and run `graphify extract .`. Currently code-only.
+
+`graphify-out/` is gitignored — it's a local artifact, not committed.
+
+## Token Efficiency Rules (ZCode agent)
+
+To minimize token waste (a known friction point in this project):
+
+1. **Never use inline bash→PowerShell pipes.** Bash strips `$_`/`$var` from PowerShell one-liners, causing cascading parse errors and retries. Instead:
+   - Write multi-step logic to a `.mjs` file (Node, runs everywhere, UTF-8 safe) and run `node <file>.mjs` — then delete it.
+   - For Windows-specific ops use a `.ps1` file, not an inline `-Command`.
+   - Single `git`/`ssh`/`curl`/`node -e` commands are fine inline.
+2. **Windows path quirk:** `cd /d D:\... && <cmd>` breaks in bash ("too many arguments"). Use `cd "D:\..." && <cmd>` (quoted) or set location inside the `.mjs`/`.ps1` file.
+3. **Verify before reporting "done".** After an edit that should produce a visible change, fetch the rendered output (e.g. `node -e "fetch(url).then(r=>...)")` and check the marker string is present. Don't claim success on `tsc` alone.
+4. **Prefer `graphify explain`/`path` over `grep` + `Read`** for navigation questions — it returns the answer in one call.
+5. **Batch independent reads/searches** in a single message (parallel tool calls) rather than sequential round-trips.
+
