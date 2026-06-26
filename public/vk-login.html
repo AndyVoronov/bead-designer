@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VK — Вход</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#fff}
+    .w{text-align:center;padding:20px}
+    .sp{width:36px;height:36px;border:3px solid #e0e0e0;border-top-color:#0077FF;border-radius:50%;animation:s .7s linear infinite;margin:0 auto 16px}
+    @keyframes s{to{transform:rotate(360deg)}}
+    .h{color:#999;font-size:13px;margin-top:16px}
+  </style>
+</head>
+<body>
+<div class="w">
+  <div class="sp"></div>
+  <div id="vk"></div>
+  <p class="h">Загружаем VK ID…</p>
+</div>
+<script src="https://unpkg.com/@vkid/sdk@2/dist-sdk/umd/index.js"><\/script>
+<script>
+(function(){
+  var done=false,VKID=window.VKIDSDK;
+  if(!VKID){
+    document.querySelector('.w').innerHTML='<p style="color:#e74c3c;font-weight:500;font-size:15px">Не удалось загрузить VK ID</p>';
+    try{window.opener.postMessage({type:'vk_login',error:'Не удалось загрузить VK'},window.opener.origin)}catch(e){}
+    return;
+  }
+  VKID.Config.init({
+    app:54631745,
+    redirectUrl:location.origin+'/api/auth/callback/vkontakte',
+    responseMode:VKID.ConfigResponseMode.Callback,
+    source:VKID.ConfigSource.LOWCODE,
+    scope:['email','profile','photo']
+  });
+  new VKID.OneTap().render({
+    container:document.getElementById('vk'),
+    showAlternativeLogin:true,
+    styles:{borderRadius:50,width:200,height:36}
+  })
+  .on(VKID.WidgetEvents.ERROR,function(){
+    document.querySelector('.w').innerHTML='<p style="color:#e74c3c;font-weight:500;font-size:15px">Ошибка авторизации VK</p>';
+    try{window.opener.postMessage({type:'vk_login',error:'Ошибка авторизации VK'},window.opener.origin)}catch(e){}
+  })
+  .on(VKID.OneTapInternalEvents.LOGIN_SUCCESS,function(p){
+    if(done)return;done=true;
+    VKID.Auth.exchangeCode(p.code,p.device_id).then(function(tk){
+      return new Promise(function(r){
+        var c='__vkc_'+Date.now(),s=document.createElement('script');
+        window[c]=function(d){delete window[c];document.head.removeChild(s);r({access_token:tk.access_token,user_id:tk.user_id,id_token:tk.id_token||'',vk_user:(d&&d.response&&d.response[0])||null})};
+        s.src='https://api.vk.com/method/users.get?fields=photo_200,email&access_token='+tk.access_token+'&v=5.131&callback='+c;
+        s.onerror=function(){delete window[c];r({access_token:tk.access_token,user_id:tk.user_id,id_token:tk.id_token||'',vk_user:null})};
+        document.head.appendChild(s);
+      });
+    }).then(function(d){
+      return fetch('/api/auth/vk-exchange',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+    }).then(function(r){
+      if(r.ok){
+        document.querySelector('.w').innerHTML='<p style="color:#27ae60;font-size:17px;font-weight:500">✓ Вход выполнен</p>';
+        try{window.opener.postMessage({type:'vk_login'},window.opener.origin)}catch(e){}
+      }else{
+        document.querySelector('.w').innerHTML='<p style="color:#e74c3c;font-weight:500;font-size:15px">Ошибка создания аккаунта</p>';
+        try{window.opener.postMessage({type:'vk_login',error:'Ошибка создания аккаунта'},window.opener.origin)}catch(e){}
+      }
+    }).catch(function(){
+      document.querySelector('.w').innerHTML='<p style="color:#e74c3c;font-weight:500;font-size:15px">Ошибка обмена кода</p>';
+      try{window.opener.postMessage({type:'vk_login',error:'Ошибка обмена кода'},window.opener.origin)}catch(e){}
+    });
+  });
+})();
+<\/script>
+</body>
+</html>

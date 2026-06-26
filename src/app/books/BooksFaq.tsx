@@ -49,7 +49,13 @@ const sketch = [
   "sketch-card-4",
 ];
 
-export default function BooksFaq() {
+export interface FaqItem { question: string; answer: string; }
+
+export default function BooksFaq({ faqItems }: { faqItems?: FaqItem[] }) {
+  // Use DB-provided items if available, otherwise fall back to hardcoded data.
+  const items = faqItems && faqItems.length > 0
+    ? faqItems.map((f) => ({ q: f.question, a: f.answer }))
+    : faqData;
   const [open, setOpen] = useState<number | null>(0);
 
   return (
@@ -90,7 +96,7 @@ export default function BooksFaq() {
         </div>
 
         <div className="space-y-5">
-          {faqData.map((item, i) => (
+          {items.map((item, i) => (
             <FaqCard
               key={i}
               q={item.q}

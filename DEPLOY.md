@@ -2,9 +2,9 @@
 
 ## Предварительные требования
 
-- **VPS** с SSH доступом (Ubuntu 20.04+ или Debian 11+)
+- **VPS** с SSH доступом (Ubuntu 24.04)
 - **Домены** с A-записями → IP VPS
-- **Локальная машина** с Node.js 20+, npm, ssh
+- **Локальная машина** с Node.js 20+, npm, ssh (tar, scp)
 - **Git**
 
 ## Информация о продакшене
@@ -36,13 +36,14 @@
 
 ## Переменные окружения
 
-Секреты хранятся в `/opt/bead-designer/.env` на VPS. PM2 загружает их через `npm start` (next start автоматически подгружает `.env` из рабочей директории).
+Секреты хранятся в `/opt/bead-config/.env` на VPS. `require('dotenv').config()` в `server.js` загружает их при старте.
 
 | Переменная | Описание | Пример |
 |------------|----------|--------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://beaduser:PASS@localhost:5432/beaddesigner` |
 | `ADMIN_LOGIN` | Логин админки | `admin` |
 | `ADMIN_PASSWORD` | Пароль админки | `your_secure_password` |
+| `ADMIN_COOKIE_SECRET` | HMAC-секрет админ-токена | `openssl rand -hex 32` |
 | `NODE_ENV` | Окружение | `production` |
 | `PORT` | Порт приложения | `3000` |
 | `AUTH_SECRET` | JWT-секрет Auth.js (32+ символов) | `openssl rand -base64 32` |
@@ -52,16 +53,12 @@
 | `AUTH_YANDEX_SECRET` | Yandex OAuth client secret | Из https://oauth.yandex.ru |
 | `AUTH_VK_ID` | VK OAuth client ID *(опционально)* | Из https://dev.vk.com |
 | `AUTH_VK_SECRET` | VK OAuth client secret *(опционально)* | Из https://dev.vk.com |
+| `TELEGRAM_BOT_TOKEN` | Telegram бот токен *(опционально)* | Из @BotFather |
 | `TELEGRAM_BOT_NAME` | Имя Telegram бота *(опционально)* | Из @BotFather |
 
 **Важно:** `.env` исключён из git через `.gitignore`. Никогда не коммитьте секреты.
 
-**CRITICAL:** Next.js standalone `server.js` НЕ загружает `.env` автоматически. После каждого деплоя нужно:
-1. Добавить `require('dotenv').config()` в `server.js`
-2. Убедиться что `ADMIN_COOKIE_SECRET` есть в `.env`
-3. Использовать `pm2 stop` + `pm2 start` (НЕ `pm2 restart --update-env` — он не перечитывает `.env`)
-
-**Не перезаписывайте `.env` на сервере при деплое** — tar-архив standalone затирает корневые файлы. Локальный `.env` отличается от серверного.
+**Не перезаписывайте `.env` на сервере при деплое** — tar-архив standalone затирает корневые файлы. `bead-deploy` автоматически восстанавливает symlink.
 
 **OAuth callback URLs** (указываются в настройках приложения Яндекс/VK):
 - Yandex: `https://5minutesofsilence.ru/api/auth/callback/yandex`
@@ -69,118 +66,96 @@
 
 ## Деплой
 
-### Быстрый деплой (скрипт)
+### Быстрый деплой (рекомендуется)
+
+Единственная рабочая команда — piped tar через SSH в `bead-deploy`:
 
 ```bash
-DEPLOY_HOST=82.38.60.189 DOMAIN=5minutesofsilence.ru bash deploy.sh
-```
-
-### Ручной деплой
-
-**ВАЖНО:** `.env` хранится в `/opt/bead-config/.env` (ВНЕ директории проекта).
-`deploy.sh` автоматически восстанавливает symlink после распаковки. Если скрипт не используется —
-всегда делайте `ln -sf /opt/bead-config/.env /opt/bead-designer/.env` после `tar xf`.
-
-#### Шаг 1: Билд локально
-
-```bash
+# 1. Билд локально
 npm run build
-```
 
-#### Шаг 2: Перенос файлов на VPS
+# 2. Деплой standalone на сервер (piped tar — не зависает, в отличие от SCP больших файлов)
+tar cf - -C .next/standalone . | ssh root@82.38.60.189 'cd /opt/bead-designer && bash /usr/local/bin/bead-deploy'
 
-Через deploy-скрипт (рекомендуется — автоматическая починка symlinks, .env, dotenv, рестарт):
-
-```bash
-# Standalone (через wrapper в /usr/local/bin/bead-deploy — НЕ затирается при деплое)
-tar cf - -C .next/standalone . | ssh root@82.38.60.189 'bash /usr/local/bin/bead-deploy'
-
-# Статика (отдельно)
+# 3. Обновить статику (если изменились CSS/шрифты)
 tar cf - -C .next/static . | ssh root@82.38.60.189 'cd /opt/bead-designer && tar xf - -C .next/static/'
+
+# 4. Обновить public/ (если добавились новые файлы: изображения книг и т.д.)
+tar cf - public/ | ssh root@82.38.60.189 'cd /opt/bead-designer && tar xf -'
 ```
 
-Или починить после ручного деплоя:
+**Почему piped tar, не SCP:** SCP на Windows зависает при передаче файлов >100MB. Piped tar через SSH работает стабильно.
+
+### bead-deploy скрипт
+
+Скрипт `/usr/local/bin/bead-deploy` (на сервере, ВНЕ проекта). Делает:
+
+1. **Extract** — `rm -rf .next/server .next/cache && tar xf -` (читает из stdin)
+2. **Sync manifests** — копирует `server/` и все manifest файлы из `.next/standalone/.next/` в `.next/` (Next.js ищет их в корневом `.next/`)
+3. **Symlink .env** → `/opt/bead-config/.env`
+4. **Fix Turbopack hashed symlinks** — `mkdir -p .next/node_modules/@prisma` затем `ln -sf` для `@prisma/client-HASH` и `pg-HASH`
+5. **dotenv** — добавляет `require("dotenv").config()` в `server.js` если нет
+6. **PM2 restart** — stop → delete → start `node server.js` → save
+
+**Fix mode** (без распаковки — только sync manifests + symlink + рестарт):
 ```bash
 ssh root@82.38.60.189 'bash /usr/local/bin/bead-deploy fix'
 ```
 
-**Важно:** deploy-скрипт хранится в `/usr/local/bin/bead-deploy` (ВНЕ проекта).
-
-Или вручную (тогда нужно восстановить .env symlink):
-
+**Важно:** если после деплоя все страницы возвращают 500, "no products", или `/admin/login` показывает 404 — запустите fix:
 ```bash
-# Standalone
-tar cf - -C .next/standalone . | ssh root@82.38.60.189 "tar xf - -C /opt/bead-designer/"
-
-# Статика
-tar cf - -C .next/static . | ssh root@82.38.60.189 "tar xf - -C /opt/bead-designer/.next/static/"
-
-# ВОССТАНОВИТЬ .env (ОБЯЗАТЕЛЬНО после tar xf!)
-ssh root@82.38.60.189 "ln -sf /opt/bead-config/.env /opt/bead-designer/.env"
+ssh root@82.38.60.189 'bash /usr/local/bin/bead-deploy fix'
 ```
 
-**Важно:** не копируйте `.env` с локальной машины — это затрёт серверные секреты!
+### Ручной деплой (без bead-deploy)
 
-#### Шаг 3: Починка Turbopack хешированных символических ссылок
-
-> Если используете `deploy.sh` — этот шаг выполняется автоматически.
-
-Turbopack создаёт хешированные ссылки (`@prisma/client-HASH`, `pg-HASH`) с абсолютными путями локальной машины — они не работают на Linux-сервере. Хеши меняются при каждом билде.
+Если скрипт по какой-то причине не работает:
 
 ```bash
+# 1. Билд
+npm run build
+
+# 2. Piped tar standalone
+tar cf - -C .next/standalone . | ssh root@82.38.60.189 "cd /opt/bead-designer && rm -rf .next/server .next/cache && tar xf -"
+
+# 3. Piped tar static
+tar cf - -C .next/static . | ssh root@82.38.60.189 "cd /opt/bead-designer && tar xf - -C .next/static/"
+
+# 4. Восстановить .env symlink (ОБЯЗАТЕЛЬНО — tar затирает!)
+ssh root@82.38.60.189 "ln -sf /opt/bead-config/.env /opt/bead-designer/.env"
+
+# 5. Fix Turbopack hashed symlinks
 ssh root@82.38.60.189 <<'REMOTE'
 cd /opt/bead-designer
-
+mkdir -p .next/node_modules/@prisma .next/node_modules
 PRISMA_HASH=$(grep -roh "prisma/client-[a-f0-9]*" .next/server/chunks/ 2>/dev/null | sed "s|prisma/client-||" | sort -u | head -1)
 PG_HASH=$(grep -roh "pg-[a-f0-9]*" .next/server/chunks/ 2>/dev/null | sed "s|pg-||" | sort -u | head -1)
-
-rm -f .next/node_modules/@prisma/client-$PRISMA_HASH .next/node_modules/pg-$PG_HASH
-ln -sf /opt/bead-designer/node_modules/.prisma/client .next/node_modules/@prisma/client-$PRISMA_HASH
-ln -sf /opt/bead-designer/node_modules/pg .next/node_modules/pg-$PG_HASH
-
+rm -f .next/node_modules/@prisma/client-$PRISMA_HASH .next/node_modules/pg-$PG_HASH 2>/dev/null
+[ -n "$PRISMA_HASH" ] && ln -sf /opt/bead-designer/node_modules/.prisma/client .next/node_modules/@prisma/client-$PRISMA_HASH
+[ -n "$PG_HASH" ] && ln -sf /opt/bead-designer/node_modules/pg .next/node_modules/pg-$PG_HASH
 rm -rf .next/cache
-echo "Symlinks fixed: prisma=$PRISMA_HASH pg=$PG_HASH"
+echo "Fixed: prisma=$PRISMA_HASH pg=$PG_HASH"
 REMOTE
-```
 
-#### Шаг 3.5: Восстановление dotenv и ADMIN_COOKIE_SECRET
+# 6. Добавить dotenv если нет
+ssh root@82.38.60.189 'grep -q "dotenv" /opt/bead-designer/server.js || sed -i "4a require(\"dotenv\").config()" /opt/bead-designer/server.js'
 
-Next.js standalone `server.js` не загружает `.env` автоматически, а `tar xf` при деплое перезаписывает файлы.
+# 7. Рестарт PM2
+ssh root@82.38.60.189 'cd /opt/bead-designer && pm2 stop bead-designer 2>/dev/null; pm2 delete bead-designer 2>/dev/null; pm2 start node --name bead-designer -- server.js; pm2 save'
 
-```bash
-ssh root@82.38.60.189 <<'REMOTE'
-cd /opt/bead-designer
-
-# 1. Вставить require('dotenv').config() в server.js (после строки с path)
-if ! grep -q 'require.*dotenv' server.js; then
-  sed -i '4a require("dotenv").config()' server.js
-  echo "Added dotenv to server.js"
-fi
-
-# 2. Убедиться ADMIN_COOKIE_SECRET есть в .env
-if ! grep -q 'ADMIN_COOKIE_SECRET' .env; then
-  echo "ADMIN_COOKIE_SECRET=$(openssl rand -hex 32)" >> .env
-  echo "Added ADMIN_COOKIE_SECRET to .env"
-fi
-
-echo "Dotenv ready"
-REMOTE
-```
-
-#### Шаг 4: Перезапуск
-
-```bash
-ssh root@82.38.60.189 <<'REMOTE'
-cd /opt/bead-designer
-pm2 stop bead-designer || true
-pm2 delete bead-designer 2>/dev/null || true
-pm2 start npm --name bead-designer -- start
-pm2 save
-REMOTE
-sleep 4
-# Проверка
+# 8. Проверка
+sleep 5
 ssh root@82.38.60.189 "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/"
 # Ожидается: 200
+```
+
+### Изменения в схеме БД
+
+Если `prisma/schema.prisma` был изменён:
+
+```bash
+# После деплоя standalone (node_modules/prisma уже на сервере)
+ssh root@82.38.60.189 "cd /opt/bead-designer && npx prisma db push"
 ```
 
 ## Nginx
@@ -225,6 +200,10 @@ ssh root@82.38.60.189 "nginx -t && systemctl reload nginx"
 
 ```bash
 # Health check
+ssh root@82.38.60.189 "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/"
+# Ожидается: 200
+
+# Внешний
 curl -s -o /dev/null -w "%{http_code}" https://5minutesofsilence.ru/
 # Ожидается: 200
 
@@ -235,19 +214,9 @@ curl -s -o /dev/null -w "%{http_code}" https://thekidsdream.ru/
 # API каталога
 curl https://5minutesofsilence.ru/api/products | python3 -m json.tool | head -5
 
-# OAuth провайдеры
-curl https://5minutesofsilence.ru/api/auth/providers
-# Ожидается: {"providers":["yandex"]}
-
-# Товары в корзине возвращают categoryId
-curl -s -c /tmp/test -X POST "https://5minutesofsilence.ru/api/cart" \
-  -H "Content-Type: application/json" \
-  -d '{"productId":9,"quantity":1}' && \
-curl -s -b /tmp/test "https://5minutesofsilence.ru/api/cart" | python3 -c "
-import json,sys; d=json.load(sys.stdin)
-print(d['items'][0]['product'].get('categoryId'))
-"
-# Ожидается: 4
+# Админка редиректит на логин
+curl -s -o /dev/null -w "%{http_code}" https://5minutesofsilence.ru/admin
+# Ожидается: 307
 ```
 
 ### Визуальная проверка
@@ -263,20 +232,15 @@ print(d['items'][0]['product'].get('categoryId'))
 
 ### Логи
 ```bash
-ssh root@82.38.60.189 "pm2 logs bead-designer --lines 50"
+ssh root@82.38.60.189 "pm2 logs bead-designer --lines 50 --nostream"
 ssh root@82.38.60.189 "tail -f /var/log/nginx/error.log"
 ```
 
 ### Перезапуск
 ```bash
-ssh root@82.38.60.189 "pm2 restart bead-designer"
-# Полный стоп и старт (если нужно):
-ssh root@82.38.60.189 "pm2 stop bead-designer || true; pm2 delete bead-designer 2>/dev/null || true; cd /opt/bead-designer && pm2 start node --name bead-designer -- server.js; pm2 save"
-```
-
-### Миграции БД
-```bash
-ssh root@82.38.60.189 "cd /opt/bead-designer && npx prisma db push"
+ssh root@82.38.60.189 "cd /opt/bead-designer && pm2 restart bead-designer"
+# Полный стоп и старт:
+ssh root@82.38.60.189 "cd /opt/bead-designer && pm2 stop bead-designer 2>/dev/null; pm2 delete bead-designer 2>/dev/null; pm2 start node --name bead-designer -- server.js; pm2 save"
 ```
 
 ### Доступ к БД
@@ -291,28 +255,40 @@ ssh root@82.38.60.189 "certbot renew && systemctl reload nginx"
 
 ## Проблемы и решения
 
-### Turbopack hashed module symlinks (502 / import errors)
+### Turbopack hashed module symlinks (502 / import errors / БД не отвечает)
 
 **Симптомы:** `Cannot find module '@prisma/client-<hash>'` или `'pg-<hash>'`
+Или: все страницы 200 но каталог пуст, шаблоны не загружаются, админка не открывается — Prisma не может подключиться к БД.
 
-**Решение:** Шаг 3 в ручном деплое. Хеши меняются при каждом билде.
+**Решение:** `ssh root@82.38.60.189 'bash /usr/local/bin/bead-deploy fix'`
+
+Хеши меняются при каждом билде. `bead-deploy` автоматом их пересоздаёт (включая `mkdir -p .next/node_modules/@prisma`).
+
+### PM2 crash-loop: "Could not find a production build"
+
+**Симптомы:** процесс падает сразу после старта, в логах ENOENT для `routes-manifest.json` или `pages-manifest.json`.
+
+**Причина:** `tar xf -C /opt/bead-designer/` распаковал standalone в `.next/standalone/`, но Next.js ищет manifest файлы в `.next/` (корневом).
+
+**Решение:** используйте `bead-deploy` — он распаковывает tar в корень проекта и файлы попадают куда нужно.
+
+### SCP зависает на Windows
+
+**Симптомы:** `scp largefile.tar.gz root@host:/tmp/` зависает бесконечно.
+
+**Решение:** используйте **piped tar через SSH** вместо SCP:
+```bash
+tar cf - .next/standalone .next/static | ssh root@82.38.60.189 'cd /opt/bead-designer && tar xf -'
+```
 
 ### PM2 не подхватывает переменные окружения
 
 **Симптомы:** Auth.js `UntrustedHost` или `AUTH_SECRET is not set`
 
-**Решение:** `pm2 restart bead-director --update-env`. Проверить: `pm2 show bead-designer`.
-
-### DNS не обновляется
-
-Проверьте через NS напрямую: `nslookup domain.ru ns1.hosting.reg.ru`
-
-### OAuth redirect_uri mismatch
-
-После смены домена обновите:
-1. OAuth callback URLs в настройках приложения Яндекс/VK
-2. `NEXTAUTH_URL` в `.env` на сервере
-3. `pm2 restart bead-designer --update-env`
+**Решение:** Полный рестарт (stop → delete → start), НЕ `pm2 restart`:
+```bash
+ssh root@82.38.60.189 "cd /opt/bead-designer && pm2 stop bead-designer; pm2 delete bead-designer; pm2 start node --name bead-designer -- server.js; pm2 save"
+```
 
 ### Изображения товаров не загружаются (404)
 
@@ -348,18 +324,16 @@ src={image.url}
 
 - [ ] DNS A-записи в Cloudflare → `82.38.60.189` (серые облака, DNS only)
 - [ ] SSL сертификаты валидны для всех доменов
-- [ ] `.env` на VPS содержит все переменные (ADMIN_LOGIN, ADMIN_PASSWORD, AUTH_*, etc.)
+- [ ] `.env` на VPS содержит все переменные (ADMIN_LOGIN, ADMIN_PASSWORD, AUTH_*, ADMIN_COOKIE_SECRET)
 - [ ] `NEXTAUTH_URL` совпадает с основным доменом
 - [ ] OAuth callback URLs совпадают с основным доменом
 - [ ] `npm run build` прошёл успешно
-- [ ] Standalone + static перенесены на сервер
-- [ ] **Не затёрт `.env` на сервере**
-- [ ] Turbopack symlinks пересозданы
-- [ ] `server.js` содержит `require('dotenv').config()`
-- [ ] PM2 start: `pm2 start node --name bead-designer -- server.js`
-- [ ] `nginx.conf` скопирован на сервер и reload
+- [ ] Standalone + static + public перенесены на сервер (piped tar)
+- [ ] **`.env` не затёрт** (bead-deploy восстанавливает symlink автоматически)
+- [ ] Turbopack symlinks пересозданы (bead-deploy fix)
+- [ ] PM2 restart через stop→delete→start (не `pm2 restart`)
 - [ ] Health check → 200
-- [ ] Старый домен редиректит на основной
+- [ ] `https://5minutesofsilence.ru/` → 200
+- [ ] Старый домен редиректит на основной → 301
 - [ ] Админка: логин + пароль работают
 - [ ] Изображения товаров отображаются
-- [ ] OAuth-вход работает end-to-end

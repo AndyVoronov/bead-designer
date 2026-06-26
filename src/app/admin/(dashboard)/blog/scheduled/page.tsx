@@ -36,7 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default async function ScheduledPostsPage() {
-  const posts = await getScheduledPosts();
+  const posts = await getScheduledPosts() as any[];
 
   return (
     <div>

@@ -41,7 +41,8 @@ const VK: OAuth2Provider = {
   },
   token: "https://oauth.vk.com/access_token",
   userinfo: "https://api.vk.com/method/users.get",
-  checks: ["pkce"],
+  // VK does NOT support PKCE (code_challenge_method=S256)
+  checks: [],
   clientId: process.env.AUTH_VK_ID!,
   clientSecret: process.env.AUTH_VK_SECRET!,
   async profile(profileResponse: { response?: Array<{ id: number; first_name: string; last_name: string; photo_200?: string }> }) {
@@ -145,6 +146,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async jwt({ token, account, user, trigger, session }) {
+      console.log("[jwt] callback:", { hasToken: !!token, hasAccount: !!account, hasUser: !!user, userId: token.userId, trigger });
+
       // Handle session update (e.g. from useSession().update())
       if (trigger === "update" && session) {
         return token;
@@ -179,6 +182,26 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.userId = String(token.userId);
       }
 
+      // Enrich token with user profile from DB (name, email, avatar)
+      if (token.userId) {
+        // Only fetch from DB if we don't have the data yet, or if name was cleared
+        if (!token.name || !token.email) {
+          try {
+            const dbUser = await prisma.user.findUnique({
+              where: { id: Number(token.userId) },
+              select: { name: true, email: true, avatar: true },
+            });
+            if (dbUser) {
+              if (dbUser.name) token.name = dbUser.name;
+              if (dbUser.email) token.email = dbUser.email;
+              if (dbUser.avatar) token.picture = dbUser.avatar;
+            }
+          } catch (err) {
+            console.error("[jwt] failed to enrich token:", err);
+          }
+        }
+      }
+
       return token;
     },
 
@@ -186,6 +209,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token.userId) {
         session.user.id = String(token.userId);
       }
+      // Copy enriched profile data from token to session
+      if (token.name) session.user.name = token.name;
+      if (token.email) session.user.email = token.email;
+      if (token.picture) session.user.image = token.picture;
       return session;
     },
   },

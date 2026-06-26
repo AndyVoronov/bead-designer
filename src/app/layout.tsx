@@ -58,6 +58,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className={`${nunito.variable} ${pacifico.variable}`}>
+      <head>
+        <MetricsScript />
+      </head>
       <body className="font-nunito">
         {/* Skip to content — accessibility */}
         <a
@@ -66,7 +69,6 @@ export default function RootLayout({
         >
           Перейти к содержимому
         </a>
-        <MetricsScript />
         <ScrollFix />
         <AuthProvider>
           <ToastProvider>

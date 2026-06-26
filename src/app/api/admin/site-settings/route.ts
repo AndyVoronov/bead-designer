@@ -38,7 +38,10 @@ export async function PUT(request: NextRequest) {
   const updates: { key: string; value: string }[] = [];
 
   for (const [key, value] of Object.entries(body)) {
-    if (key in SETTINGS_SCHEMA && typeof value === "string") {
+    // Accept known settings schema keys AND any books_* prefixed keys
+    // (managed by the /admin/books-content page).
+    const isBooksKey = key.startsWith("books_");
+    if ((key in SETTINGS_SCHEMA || isBooksKey) && typeof value === "string") {
       updates.push({ key, value: value.slice(0, 2000) });
     }
   }

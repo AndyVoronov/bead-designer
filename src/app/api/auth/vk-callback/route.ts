@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SignJWT } from "jose";
+import { encode } from "@auth/core/jwt";
 import { prisma } from "@/lib/prisma";
-
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "toy-designer-default-secret-change-in-production"
-);
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://5minutesofsilence.ru";
 
 /**
@@ -79,19 +75,40 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenRes.json();
     console.log("[VK] Token exchange OK, user_id:", tokenData.user_id, "has_id_token:", !!tokenData.id_token);
 
-    // Extract user data from id_token JWT
+    // First: fetch user data from VK ID UserInfo API (id.vk.com)
     let name = "VK User";
     let avatar: string | null = null;
     let email: string | null = null;
 
-    if (tokenData.id_token) {
+    if (tokenData.access_token) {
+      try {
+        const userInfoRes = await fetch("https://id.vk.com/oauth2/user_info", {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        if (userInfoRes.ok) {
+          const vkUser = await userInfoRes.json();
+          console.log("[VK] UserInfo response:", JSON.stringify(vkUser));
+          const firstName = vkUser.first_name || "";
+          const lastName = vkUser.last_name || "";
+          name = [firstName, lastName].filter(Boolean).join(" ") || "VK User";
+          avatar = vkUser.avatar || null;
+          email = vkUser.email || null;
+        } else {
+          console.error("[VK] UserInfo failed:", userInfoRes.status);
+        }
+      } catch (e) {
+        console.error("[VK] Failed to fetch user from VK ID API:", e);
+      }
+    }
+
+    // Fallback: decode id_token JWT if UserInfo didn't return data
+    if (name === "VK User" && tokenData.id_token) {
       try {
         const parts = tokenData.id_token.split(".");
         if (parts.length === 3) {
           let payload = parts[1];
           while (payload.length % 4 !== 0) payload += "=";
           const decoded = JSON.parse(Buffer.from(payload, "base64").toString("utf-8"));
-          console.log("[VK] id_token payload:", JSON.stringify(decoded));
           const firstName = decoded.first_name || decoded.given_name || "";
           const lastName = decoded.last_name || decoded.family_name || "";
           name = [firstName, lastName].filter(Boolean).join(" ") || "VK User";
@@ -134,21 +151,27 @@ export async function GET(request: NextRequest) {
       userId = newUser.id;
     }
 
-    // Issue JWT
-    const token = await new SignJWT({
-      sub: String(userId),
-      name,
-      picture: avatar,
-      provider,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-    })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .sign(AUTH_SECRET);
+    // Use @auth/core/jwt.encode — same function NextAuth uses internally
+    const nextAuthUrl = process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL_INTERNAL || "";
+    const cookieName = nextAuthUrl.startsWith("https://")
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token";
+
+    const token = await encode({
+      token: {
+        sub: String(userId),
+        userId: String(userId),
+        name,
+        picture: avatar,
+        provider,
+      },
+      secret: process.env.AUTH_SECRET!,
+      salt: cookieName,
+    });
 
     // Redirect to home with JWT cookie
     const response = NextResponse.redirect(BASE_URL + "/");
-    response.cookies.set("authjs.session-token", token, {
+    response.cookies.set(cookieName, token, {
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
       sameSite: "lax",

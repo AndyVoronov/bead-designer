@@ -18,4 +18,9 @@ server.js.bak
 # Local-only tooling & build artifacts (not for prod)
 .gsd/
 deploy.tar.gz
+deploy.tar
+nul
+build.log
+prod_schema.txt
+.tmp-*
 

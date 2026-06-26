@@ -745,16 +745,24 @@ function TabSettings() {
   const toast = useToast();
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState<string | null>(null);
+  const [providers, setProviders] = useState<string[]>([]);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch current phone from session (not in user object)
-    fetch("/api/auth/session")
+    fetch("/api/user/profile")
       .then((r) => r.json())
-      .then((s) => {
-        // Phone not in session, use profile endpoint placeholder
+      .then((data) => {
+        if (data.name) setName(data.name);
+        if (data.phone) setPhone(data.phone);
+        if (data.email) setEmail(data.email);
+        if (data.providers) setProviders(data.providers);
+        if (data.createdAt) setCreatedAt(data.createdAt);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
@@ -779,37 +787,96 @@ function TabSettings() {
     }
   };
 
+  const providerLabels: Record<string, string> = {
+    yandex: "Яндекс",
+    vkontakte: "ВКонтакте",
+    telegram: "Telegram",
+  };
+
+  if (loading) return <LoadingSkeleton />;
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <h2 className="font-semibold text-gray-900 mb-4">Настройки профиля</h2>
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Имя</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ваше имя"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-          />
+    <div className="space-y-4">
+      {/* Profile card */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="font-semibold text-gray-900 mb-4">Личные данные</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Имя</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ваше имя"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => {
+                // Auto-format +7 (XXX) XXX-XX-XX
+                let val = e.target.value.replace(/\D/g, "");
+                if (val.length === 0) { setPhone(""); return; }
+                if (val[0] !== "7" && val[0] !== "8") val = "7" + val;
+                if (val.length > 11) val = val.slice(0, 11);
+                let formatted = `+7`;
+                if (val.length > 1) formatted += ` (${val.slice(1, 4)}`;
+                if (val.length > 4) formatted += `) ${val.slice(4, 7)}`;
+                if (val.length > 7) formatted += `-${val.slice(7, 9)}`;
+                if (val.length > 9) formatted += `-${val.slice(9, 11)}`;
+                setPhone(formatted);
+              }}
+              placeholder="+7 (___) ___-__-__"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+            />
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 bg-rose-500 text-white text-sm font-medium rounded-lg hover:bg-rose-600 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {saving ? "Сохранение..." : "Сохранить"}
+          </button>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+7 (___) ___-__-__"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
-          />
+      </div>
+
+      {/* Account info card (read-only) */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="font-semibold text-gray-900 mb-4">Аккаунт</h2>
+        <div className="space-y-3 text-sm">
+          {email && (
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">Email</span>
+              <span className="text-gray-900">{email}</span>
+            </div>
+          )}
+          {providers.length > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">Способы входа</span>
+              <div className="flex gap-2">
+                {providers.map((p) => (
+                  <span
+                    key={p}
+                    className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium"
+                  >
+                    {providerLabels[p] || p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {createdAt && (
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">Дата регистрации</span>
+              <span className="text-gray-900">
+                {new Date(createdAt).toLocaleDateString("ru-RU")}
+              </span>
+            </div>
+          )}
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 bg-rose-500 text-white text-sm font-medium rounded-lg hover:bg-rose-600 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {saving ? "Сохранение..." : "Сохранить"}
-        </button>
       </div>
     </div>
   );

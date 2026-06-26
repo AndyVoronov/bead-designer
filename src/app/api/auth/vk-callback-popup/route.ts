@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SignJWT } from "jose";
+import { encode } from "@auth/core/jwt";
 import { prisma } from "@/lib/prisma";
 
-const AUTH_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "toy-designer-default-secret-change-in-production"
-);
+const DEFAULT_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+
+function getCookieName(): string {
+  const nextAuthUrl = process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL_INTERNAL || "";
+  if (nextAuthUrl.startsWith("https://")) {
+    return "__Secure-authjs.session-token";
+  }
+  return "authjs.session-token";
+}
 
 /**
  * VK ID popup callback.
  *
  * VK redirects here with ?code=...&device_id=...&state=...
  * We exchange code for tokens using VK ID endpoint (application/x-www-form-urlencoded),
- * extract user info from id_token JWT, create user, issue JWT cookie.
+ * extract user info from id_token JWT, create user, issue JWT cookie
+ * using @auth/core/jwt.encode (same function NextAuth uses internally).
  * Then render HTML that tells opener via postMessage and closes.
  */
 export async function GET(request: NextRequest) {
@@ -50,7 +57,7 @@ export async function GET(request: NextRequest) {
       params.append("code_verifier", codeVerifier);
     }
 
-    // Exchange code for tokens at VK ID endpoint (NOT access_token, and NOT JSON)
+    // Exchange code for tokens at VK ID endpoint
     const tokenRes = await fetch("https://id.vk.com/oauth2/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -79,36 +86,53 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Extract user info from id_token JWT (VK ID doesn't have separate user_info endpoint)
-    let vkUser: { user_id: string; first_name?: string; last_name?: string; picture?: string; email?: string };
+    // First: fetch user data from VK ID UserInfo API (id.vk.com)
+    let vkUser: { user_id: string; first_name?: string; last_name?: string; picture?: string; email?: string } = {
+      user_id: String(tokenData.user_id || ""),
+    };
 
-    if (tokenData.id_token) {
-      // Decode JWT payload (no verification needed — VK signed it)
-      const parts = tokenData.id_token.split(".");
-      if (parts.length === 3) {
-        let payload = parts[1];
-        // Add base64 padding
-        while (payload.length % 4 !== 0) payload += "=";
-        const decoded = JSON.parse(Buffer.from(payload, "base64").toString("utf-8"));
-        vkUser = {
-          user_id: String(decoded.sub || tokenData.user_id || ""),
-          first_name: decoded.first_name || decoded.given_name || "",
-          last_name: decoded.last_name || decoded.family_name || "",
-          picture: decoded.picture || decoded.photo || "",
-          email: decoded.email || "",
-        };
-      } else {
-        vkUser = { user_id: String(tokenData.user_id || ""), first_name: "", last_name: "", picture: "", email: "" };
+    if (accessToken) {
+      try {
+        const userInfoRes = await fetch("https://id.vk.com/oauth2/user_info", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (userInfoRes.ok) {
+          const info = await userInfoRes.json();
+          console.log("[VK-popup] UserInfo response:", JSON.stringify(info));
+          vkUser = {
+            user_id: String(info.user_id || tokenData.user_id || ""),
+            first_name: info.first_name || "",
+            last_name: info.last_name || "",
+            picture: info.avatar || "",
+            email: info.email || "",
+          };
+        } else {
+          console.error("[VK-popup] UserInfo failed:", userInfoRes.status);
+        }
+      } catch (e) {
+        console.error("[VK-popup] UserInfo error:", e);
       }
-    } else {
-      // Fallback: use user_id from token response
-      vkUser = {
-        user_id: String(tokenData.user_id || ""),
-        first_name: "",
-        last_name: "",
-        picture: "",
-        email: "",
-      };
+    }
+
+    // Fallback: decode id_token JWT if UserInfo didn't return data
+    if (!vkUser.first_name && !vkUser.last_name && tokenData.id_token) {
+      try {
+        const parts = tokenData.id_token.split(".");
+        if (parts.length === 3) {
+          let payload = parts[1];
+          while (payload.length % 4 !== 0) payload += "=";
+          const decoded = JSON.parse(Buffer.from(payload, "base64").toString("utf-8"));
+          vkUser = {
+            user_id: String(decoded.sub || tokenData.user_id || ""),
+            first_name: decoded.first_name || decoded.given_name || "",
+            last_name: decoded.last_name || decoded.family_name || "",
+            picture: decoded.picture || decoded.photo || "",
+            email: decoded.email || "",
+          };
+        }
+      } catch (e) {
+        console.error("[VK-popup] Failed to decode id_token:", e);
+      }
     }
 
     const provider = "vkontakte";
@@ -156,24 +180,32 @@ export async function GET(request: NextRequest) {
       userId = newUser.id;
     }
 
-    // Issue JWT
-    const token = await new SignJWT({
-      sub: String(userId),
-      name,
-      picture: avatar,
-      provider,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-    })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .sign(AUTH_SECRET);
+    // Use @auth/core/jwt.encode — same function NextAuth uses internally
+    // This guarantees the JWE format and key derivation are identical
+    const secret = process.env.AUTH_SECRET;
+    const cookieName = getCookieName();
+
+    const token = await encode({
+      token: {
+        sub: String(userId),
+        userId: String(userId),
+        name,
+        picture: avatar,
+        provider,
+      },
+      secret,
+      salt: cookieName,
+    });
+
+    console.log("[VK-callback] Session token created for user:", userId, "cookie:", cookieName);
 
     // Return HTML that sets cookie, clears code_verifier, and notifies opener
     const origin = request.headers.get("origin") || "";
+    const isSecure = request.url.startsWith("https") ? "; secure" : "";
 
     return new NextResponse(
       '<!DOCTYPE html>\n<html>\n<head><title>ВКонтакте — вход выполнен</title></head>\n<body>\n<script>\n' +
-      'document.cookie = "authjs.session-token=' + token + '; path=/; max-age=' + (30 * 24 * 60 * 60) + '; samesite=lax' + (request.url.startsWith("https") ? "; secure" : "") + '";\n' +
+      'document.cookie = "' + cookieName + '=' + token + '; path=/; max-age=' + DEFAULT_MAX_AGE + '; samesite=lax' + isSecure + '";\n' +
       'document.cookie = "vk_code_verifier=; path=/; max-age=0";\n' +
       'window.opener.postMessage({ type: "vk_login" }, "' + origin + '");\n' +
       'window.close();\n' +

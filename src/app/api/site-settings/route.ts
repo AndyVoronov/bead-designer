@@ -9,8 +9,15 @@ const PUBLIC_KEYS = [
 ];
 
 export async function GET() {
+  // Fetch explicit public keys PLUS any books_* keys (prefix match keeps it
+  // future-proof as new books-section settings are added).
   const settings = await prisma.siteSettings.findMany({
-    where: { key: { in: PUBLIC_KEYS } },
+    where: {
+      OR: [
+        { key: { in: PUBLIC_KEYS } },
+        { key: { startsWith: "books_" } },
+      ],
+    },
   });
 
   const map: Record<string, string> = {};

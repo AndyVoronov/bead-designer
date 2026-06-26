@@ -8,17 +8,20 @@ import { useState } from "react";
  * Wrapped in the dark #481515 backdrop with wavy top/bottom edges.
  */
 
-const pairs = [
+const FALLBACK_PAIRS = [
   { photo: "/books/transform/girl.webp", character: "/books/transform/girl-character.webp" },
   { photo: "/books/transform/boy.webp", character: "/books/transform/boy-character.webp" },
-  { photo: "/books/transform/woman.webp", character: "/books/transform/woman-character.webp" },
-  { photo: "/books/transform/man.webp", character: "/books/transform/man-character.webp" },
 ];
 
-export default function BooksTryDemo() {
+export interface DemoPairItem { photoUrl: string; characterUrl: string; }
+
+export default function BooksTryDemo({ pairs }: { pairs?: DemoPairItem[] }) {
+  const list = pairs && pairs.length > 0
+    ? pairs.map((p) => ({ photo: p.photoUrl, character: p.characterUrl }))
+    : FALLBACK_PAIRS;
   const [idx, setIdx] = useState(0);
-  const pair = pairs[idx];
-  const goTo = (i: number) => setIdx(((i % pairs.length) + pairs.length) % pairs.length);
+  const pair = list[idx];
+  const goTo = (i: number) => setIdx(((i % list.length) + list.length) % list.length);
 
   return (
     <div className="relative z-10 bg-[#481515]">
@@ -128,7 +131,7 @@ export default function BooksTryDemo() {
 
             {/* dots */}
             <div className="flex items-center justify-center gap-2 mt-6">
-              {pairs.map((_, i) => (
+              {list.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => goTo(i)}

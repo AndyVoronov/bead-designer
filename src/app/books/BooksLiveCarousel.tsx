@@ -2,13 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { livePhotos } from "./live-photos";
+import { livePhotos as FALLBACK_PHOTOS } from "./live-photos";
 
 /**
  * "Живые эмоции" — carousel of real customer photos with a beige watercolor
  * backdrop, arrow controls, and dot pagination (matches momomoments.ru).
  */
-export default function BooksLiveCarousel() {
+export default function BooksLiveCarousel({ photos }: { photos?: string[] }) {
+  const livePhotos = photos && photos.length > 0 ? photos : FALLBACK_PHOTOS;
   const [index, setIndex] = useState(0);
   const [perView, setPerView] = useState(3);
   const trackRef = useRef<HTMLDivElement>(null);

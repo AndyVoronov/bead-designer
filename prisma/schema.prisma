@@ -95,6 +95,12 @@ model Product {
   waitlistEntries WaitlistEntry[]
   productFaqs     ProductFaq[]
 
+  // ── Books-specific fields (nullable for non-book products) ──
+  audience        String?          // "Мальчик" | "Девочка" | "Унисекс" — for /books card badge
+  homepageTag     String?          // "" | "Новинка" | "Популярная" | "Семейная" — /books catalog badge
+  priceDigital    Float?           // digital version price (books only)
+  discountDigital Float?           // discounted digital price (books only)
+
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -457,10 +463,12 @@ model ProductFaq {
   question  String
   answer    String   @db.Text
   order     Int      @default(0)
+  scope     String   @default("catalog") // "catalog" | "books"
   createdAt DateTime @default(now())
 
   @@index([productId])
   @@index([order])
+  @@index([scope])
 }
 
 // ── Blog ─────────────────────────────────────────────────────────────────
@@ -569,4 +577,28 @@ model ScheduledPost {
   @@index([scheduledAt])
   @@index([status])
   @@map("scheduled_posts")
+}
+
+// ── Books page: try-demo before/after pairs ──────────────────────────────
+model DemoPair {
+  id            Int     @id @default(autoincrement())
+  photoUrl      String  // "before" image (/uploads/books/... or /books/...)
+  characterUrl  String  // "after" character image
+  order         Int     @default(0)
+  isActive      Boolean @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([order])
+}
+
+// ── Books page: "Живые эмоции" carousel photos ───────────────────────────
+model LivePhoto {
+  id        Int     @id @default(autoincrement())
+  url       String  // /uploads/books/... or /books/live/...
+  order     Int     @default(0)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([order])
 }

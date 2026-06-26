@@ -7,8 +7,9 @@ import { useAuth, notifyAuthChange } from "@/lib/auth-provider";
 /**
  * Login modal triggered by protected actions.
  *
- * Yandex and VK use standard OAuth redirect flow via NextAuth.
- * Telegram uses Telegram Login Widget in a popup.
+ * Yandex — standard OAuth redirect flow via NextAuth.
+ * Telegram — Telegram Login Widget in a popup → /api/auth/telegram.
+ * VK — VK ID SDK in a popup (inline) → /api/auth/vk-exchange.
  */
 export function LoginModal() {
   const { user } = useAuth();
@@ -89,7 +90,6 @@ export function LoginModal() {
   // Listen for Telegram widget postMessage
   useEffect(() => {
     const handler = async (event: MessageEvent) => {
-      // Only accept from our own origin or Telegram widget
       if (event.origin !== window.location.origin && event.origin !== "https://oauth.telegram.org") return;
       if (event.data?.type !== "tg_login") return;
 
@@ -117,13 +117,35 @@ export function LoginModal() {
     return () => window.removeEventListener("message", handler);
   }, []);
 
+  // Listen for VK ID popup postMessage
+  useEffect(() => {
+    const handler = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "vk_login") return;
+
+      if (event.data.error) {
+        setError(event.data.error);
+        return;
+      }
+      // JWT cookie was set by vk-callback-popup, just notify auth state
+      notifyAuthChange();
+      if (popupRef.current) {
+        popupRef.current.close();
+        popupRef.current = null;
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
   // Check URL params for OAuth errors after redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("error") === "OAuthCallback") {
+    if (params.get("error") === "OAuthCallback" || params.get("error") === "VKAuthError") {
       setError("Не удалось войти. Попробуйте ещё раз.");
       const url = new URL(window.location.href);
       url.searchParams.delete("error");
+      url.searchParams.delete("message");
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
@@ -204,6 +226,22 @@ export function LoginModal() {
     }
   };
 
+  const signInVK = () => {
+    setError(null);
+    // Open popup to a real URL — VK ID SDK requires a proper domain origin
+    const width = 500;
+    const height = 600;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+
+    const popup = window.open(
+      "/vk-login",
+      "vk_login",
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+    popupRef.current = popup;
+  };
+
   if (!isOpen) return null;
 
   const showYandex = providers.includes("yandex");
@@ -282,10 +320,10 @@ export function LoginModal() {
             </button>
           )}
 
-          {/* VK */}
+          {/* VK — uses VK ID SDK in popup */}
           {showVK && (
             <button
-              onClick={() => signInProvider("vkontakte")}
+              onClick={signInVK}
               className="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-[#0077FF] text-white font-medium hover:bg-[#0066dd] transition-colors cursor-pointer active:scale-[0.98]"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="white">

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SignJWT } from "jose";
+import { encode } from "@auth/core/jwt";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 
@@ -134,21 +134,27 @@ export async function POST(request: NextRequest) {
       userId = newUser.id;
     }
 
-    // Issue JWT compatible with NextAuth
-    const token = await new SignJWT({
-      sub: String(userId),
-      name,
-      picture: avatar,
-      provider,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
-    })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .sign(AUTH_SECRET);
+    // Use @auth/core/jwt.encode — same function NextAuth uses internally
+    const nextAuthUrl = process.env.NEXTAUTH_URL || process.env.NEXTAUTH_URL_INTERNAL || "";
+    const cookieName = nextAuthUrl.startsWith("https://")
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token";
+
+    const token = await encode({
+      token: {
+        sub: String(userId),
+        userId: String(userId),
+        name,
+        picture: avatar,
+        provider,
+      },
+      secret: process.env.AUTH_SECRET!,
+      salt: cookieName,
+    });
 
     // Set cookie (same name as NextAuth session cookie)
     const response = NextResponse.json({ success: true, userId });
-    response.cookies.set("authjs.session-token", token, {
+    response.cookies.set(cookieName, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
