@@ -21,7 +21,35 @@ model Category {
   order     Int       @default(0)
   products  Product[]
   reviews   Review[]
+  care_guides care_guides?
   createdAt DateTime  @default(now())
+}
+
+// ── Care guides (per-category) ───────────────────────────────────────────
+// Mirrors the production DB tables (snake_case) so prisma db push is a no-op.
+
+model care_guides {
+  id               Int               @id @default(autoincrement())
+  categoryId       Int               @unique
+  title            String
+  subtitle         String?
+  warning          String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  care_guide_items care_guide_items[]
+  Category         Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
+
+model care_guide_items {
+  id          Int         @id @default(autoincrement())
+  guideId     Int
+  icon        String
+  text        String
+  order       Int         @default(0)
+  createdAt   DateTime    @default(now())
+  care_guides care_guides @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  @@index([guideId])
 }
 
 // ── Catalog: Badges ──────────────────────────────────────────────────────
